@@ -1,0 +1,76 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #050706;
+  --foreground: #f7faf8;
+  --accent: #25d86f;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--background);
+  color-scheme: dark;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  color: var(--foreground);
+  background:
+    radial-gradient(circle at 50% -10%, rgba(37, 216, 111, .08), transparent 28rem),
+    radial-gradient(circle at 12% 84%, rgba(37, 216, 111, .035), transparent 26rem),
+    #050706;
+  font-family: Arial, Helvetica, sans-serif;
+  text-rendering: optimizeLegibility;
+}
+
+button, input, textarea {
+  font: inherit;
+}
+
+::selection {
+  background: rgba(37, 216, 111, .28);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .13);
+  background-clip: padding-box;
+}
+
+@layer components {
+  .proof-panel {
+    @apply rounded-[24px] border border-white/[0.08] bg-white/[0.025] shadow-proof-card;
+  }
+
+  .proof-pill {
+    @apply inline-flex items-center justify-center rounded-full border border-white/[0.09] bg-white/[0.035] text-white transition hover:border-white/[0.16] hover:bg-white/[0.06];
+  }
+
+  .proof-kicker {
+    @apply text-[11px] font-semibold uppercase tracking-proof text-white/35;
+  }
+
+  .proof-grid-cell {
+    @apply h-[18px] w-[18px] shrink-0 rounded-[5px] border transition duration-150;
+  }
+
+  .proof-focus {
+    @apply outline-none ring-0 focus-visible:ring-2 focus-visible:ring-proof-green/60;
+  }
+}

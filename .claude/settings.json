@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs grep -l \"createServerClient\\\\|createBrowserClient\")",
+      "Bash(npx eslint *)",
+      "Skill(run)",
+      "Skill(run:*)",
+      "Bash(npx playwright *)",
+      "Bash(curl -s http://localhost:3000/auth)",
+      "Bash(curl -s -o /dev/null -w \"auth status: %{http_code}\\\\n\" http://localhost:3000/auth)",
+      "Bash(curl -s -o /dev/null -w \"dashboard status: %{http_code}\\\\n\" http://localhost:3000/dashboard)",
+      "Bash(curl -sI http://localhost:3000/dashboard)",
+      "Bash(tail -60 /tmp/dailyproof-dev.log)",
+      "Read(//tmp/**)"
+    ]
+  }
+}
