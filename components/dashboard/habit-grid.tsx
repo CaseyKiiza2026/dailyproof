@@ -1,23 +1,27 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Filter, Sparkles, Check, X, Moon, Plane, Flame, Trophy } from "lucide-react";
+import { Filter, Sparkles, Check, X, Bed, Plane, Flame, Trophy, Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { upsertHabitLog } from "@/lib/actions/habit-logs";
+import { seedStarterHabits, HabitInput } from "@/lib/actions/habits";
 import { Habit, HabitStatus } from "@/lib/types";
+import { HabitFormModal } from "@/components/dashboard/habit-form-modal";
+import { HabitRowMenu } from "@/components/dashboard/habit-row-menu";
+import { DeleteHabitDialog } from "@/components/dashboard/delete-habit-dialog";
 
 const statusClasses: Record<HabitStatus, string> = {
-  complete: "border-proof-green/55 bg-proof-green shadow-[0_0_13px_rgba(37,216,111,.18)]",
-  missed: "border-proof-red/60 bg-proof-red",
-  rest: "border-proof-amber/60 bg-proof-amber",
-  vacation: "border-proof-violet/60 bg-proof-violet",
+  complete: "border-proof-green/70 bg-proof-green shadow-[0_0_16px_rgba(37,216,111,.45),inset_0_1px_0_rgba(255,255,255,.35)]",
+  missed: "border-proof-red/70 bg-proof-red shadow-[0_0_16px_rgba(255,85,79,.45),inset_0_1px_0_rgba(255,255,255,.35)]",
+  rest: "border-proof-amber/70 bg-proof-amber shadow-[0_0_16px_rgba(245,158,11,.45),inset_0_1px_0_rgba(255,255,255,.35)]",
+  vacation: "border-proof-violet/70 bg-proof-violet shadow-[0_0_16px_rgba(139,92,246,.45),inset_0_1px_0_rgba(255,255,255,.35)]",
   empty: "border-white/[0.07] bg-white/[0.045]"
 };
 
 const statusIcons: Record<HabitStatus, typeof Check | null> = {
   complete: Check,
   missed: X,
-  rest: Moon,
+  rest: Bed,
   vacation: Plane,
   empty: null
 };
@@ -29,6 +33,14 @@ function formatDateKey(date: Date) {
   const m = String(date.getMonth() + 1).padStart(2, "0");
   const d = String(date.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
+}
+
+function habitIcon(name: string) {
+  return name.slice(0, 2).toUpperCase();
+}
+
+function cellKey(habitId: string, day: number) {
+  return `${habitId}:${day}`;
 }
 
 type DayType = "success" | "fail" | "rest" | "vacation" | "empty";
@@ -126,6 +138,8 @@ function computeCompletion(habits: Habit[], today: number): number {
   return denominator === 0 ? 0 : Math.round((complete / denominator) * 100);
 }
 
+type ModalState = { mode: "create" } | { mode: "edit"; habit: Habit };
+
 export function HabitGrid() {
   const now = useMemo(() => new Date(), []);
   const year = now.getFullYear();
@@ -142,6 +156,10 @@ export function HabitGrid() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState(todayDay);
+  const [modal, setModal] = useState<ModalState | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Habit | null>(null);
+  const [seeding, setSeeding] = useState(false);
+  const [pendingCells, setPendingCells] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     let cancelled = false;
@@ -164,7 +182,7 @@ export function HabitGrid() {
 
       const { data: habitRows } = await supabase
         .from("habits")
-        .select("id, name, category, order_index")
+        .select("id, name, category, order_index, is_core")
         .eq("user_id", user.id)
         .order("order_index", { ascending: true });
 
@@ -194,8 +212,10 @@ export function HabitGrid() {
           name: row.name,
           category: row.category,
           subtitle: row.category,
-          icon: row.name.slice(0, 2).toUpperCase(),
-          statuses
+          icon: habitIcon(row.name),
+          statuses,
+          isCore: row.is_core,
+          orderIndex: row.order_index
         };
       });
 
@@ -219,12 +239,16 @@ export function HabitGrid() {
     const editable = day === todayDay || day === yesterdayDay;
     if (!editable) return;
 
+    const key = cellKey(habitId, day);
+    if (pendingCells.has(key)) return;
+
     const habit = habits.find((h) => h.id === habitId);
     if (!habit) return;
 
     const previousStatus = habit.statuses[dayIndex] ?? "empty";
     const nextStatus = cycle[(cycle.indexOf(previousStatus) + 1) % cycle.length];
 
+    setPendingCells((current) => new Set(current).add(key));
     setHabits((current) =>
       current.map((h) => {
         if (h.id !== habitId) return h;
@@ -238,6 +262,7 @@ export function HabitGrid() {
     const result = await upsertHabitLog(habitId, logDate, nextStatus);
 
     if (!result.success) {
+      console.error(`Failed to save habit log (habit ${habitId}, ${logDate}, status ${nextStatus}):`, result.error);
       setHabits((current) =>
         current.map((h) => {
           if (h.id !== habitId) return h;
@@ -247,7 +272,68 @@ export function HabitGrid() {
         })
       );
     }
+
+    setPendingCells((current) => {
+      const next = new Set(current);
+      next.delete(key);
+      return next;
+    });
   }
+
+  function handleHabitCreated(id: string, orderIndex: number, input: HabitInput) {
+    setHabits((current) => [
+      ...current,
+      {
+        id,
+        name: input.name,
+        category: input.category,
+        subtitle: input.category,
+        icon: habitIcon(input.name),
+        statuses: Array.from({ length: daysInMonth }, () => "empty"),
+        isCore: input.isCore,
+        orderIndex
+      }
+    ]);
+    setModal(null);
+  }
+
+  function handleHabitUpdated(id: string, input: HabitInput) {
+    setHabits((current) =>
+      current.map((h) =>
+        h.id === id
+          ? { ...h, name: input.name, category: input.category, subtitle: input.category, icon: habitIcon(input.name), isCore: input.isCore }
+          : h
+      )
+    );
+    setModal(null);
+  }
+
+  function handleHabitDeleted(id: string) {
+    setHabits((current) => current.filter((h) => h.id !== id));
+    setDeleteTarget(null);
+  }
+
+  async function handleSeedStarterHabits() {
+    setSeeding(true);
+    const result = await seedStarterHabits();
+    setSeeding(false);
+    if (!result.success) return;
+
+    setHabits(
+      result.data.map((row) => ({
+        id: row.id,
+        name: row.name,
+        category: row.category,
+        subtitle: row.category,
+        icon: habitIcon(row.name),
+        statuses: Array.from({ length: daysInMonth }, () => "empty"),
+        isCore: true,
+        orderIndex: row.order_index
+      }))
+    );
+  }
+
+  const showEmptyState = !loading && habits.length === 0;
 
   return (
     <section className="proof-panel overflow-hidden">
@@ -262,6 +348,9 @@ export function HabitGrid() {
           <p className="mt-1 text-xs text-white/35">Tap a cell to cycle its status.</p>
         </div>
         <div className="flex gap-2">
+          <button onClick={() => setModal({ mode: "create" })} className="proof-pill proof-focus h-9 gap-1 px-3 text-xs font-semibold text-proof-green">
+            <Plus size={14} /> Add habit
+          </button>
           <button onClick={() => setSelectedDay(todayDay)} className="proof-pill proof-focus h-9 px-3 text-xs font-semibold">Today</button>
           <button aria-label="Filter habits" className="proof-pill proof-focus h-9 w-9"><Filter size={15} /></button>
         </div>
@@ -269,70 +358,118 @@ export function HabitGrid() {
 
       <div className="overflow-x-auto">
         <div className="min-w-[805px]">
-          <div className="grid grid-cols-[150px_repeat(18,22px)] items-center gap-x-2 border-b border-white/[0.06] px-4 py-2.5 text-[10px] text-white/32 sm:grid-cols-[178px_repeat(18,22px)] sm:px-5">
-            <span className="uppercase tracking-[.12em]">Habit</span>
-            {visibleDays.map((day) => (
-              <button key={day} onClick={() => setSelectedDay(day)} className={`grid h-6 w-6 place-items-center rounded-full transition ${selectedDay === day ? "bg-proof-green font-black text-black shadow-[0_0_20px_rgba(37,216,111,.24)]" : "hover:bg-white/[0.05]"}`}>{day}</button>
-            ))}
-          </div>
-
-          {loading ? (
-            <div className="space-y-3 px-4 py-5 sm:px-5">
-              {Array.from({ length: 4 }, (_, i) => (
-                <div key={i} className="grid grid-cols-[150px_repeat(18,22px)] items-center gap-x-2 sm:grid-cols-[178px_repeat(18,22px)]">
-                  <div className="h-7 w-32 animate-pulse rounded-lg bg-white/[0.06]" />
-                  {visibleDays.map((day) => (
-                    <div key={day} className="proof-grid-cell animate-pulse border-white/[0.05] bg-white/[0.03]" />
-                  ))}
-                </div>
-              ))}
+          {showEmptyState ? (
+            <div className="flex flex-col items-center gap-4 px-6 py-14 text-center">
+              <div className="grid h-12 w-12 place-items-center rounded-2xl border border-white/[0.08] bg-white/[0.03] text-white/40">
+                <Sparkles size={20} />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-white/80">No habits yet</p>
+                <p className="mt-1 text-xs text-white/35">Add your first habit, or start with a curated set.</p>
+              </div>
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <button
+                  onClick={handleSeedStarterHabits}
+                  disabled={seeding}
+                  className="proof-focus h-9 rounded-full bg-proof-green px-4 text-xs font-bold text-black shadow-proof-button transition disabled:opacity-60"
+                >
+                  {seeding ? "Adding..." : "Add starter habits"}
+                </button>
+                <button onClick={() => setModal({ mode: "create" })} className="proof-pill proof-focus h-9 px-4 text-xs font-semibold">
+                  Add habit
+                </button>
+              </div>
             </div>
           ) : (
-            habits.map((habit) => (
-              <div key={habit.id} className="grid grid-cols-[150px_repeat(18,22px)] items-center gap-x-2 border-b border-white/[0.055] px-4 py-3 last:border-0 sm:grid-cols-[178px_repeat(18,22px)] sm:px-5">
-                <div className="sticky left-0 z-10 flex min-w-0 items-center gap-2 bg-[#0a0d0b]/95 pr-2 backdrop-blur-sm">
-                  <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-white/[0.08] bg-white/[0.025] text-[10px] font-bold text-white/70">{habit.icon}</span>
-                  <div className="min-w-0">
-                    <p className="truncate text-xs font-bold text-white/90">{habit.name}</p>
-                    <p className="truncate text-[10px] text-white/28">{habit.subtitle}</p>
-                  </div>
-                </div>
-                {visibleDays.map((day, dayIndex) => {
-                  const status = habit.statuses[dayIndex] ?? "empty";
-                  const StatusIcon = statusIcons[status];
-                  const editable = day === todayDay || day === yesterdayDay;
-                  return (
-                    <button
-                      aria-label={`${habit.name}, day ${day}: ${status}`}
-                      key={`${habit.id}-${day}`}
-                      disabled={!editable}
-                      onClick={() => updateCell(habit.id, dayIndex, day)}
-                      className={`proof-grid-cell proof-focus grid place-items-center disabled:cursor-not-allowed disabled:opacity-40 ${statusClasses[status]} ${selectedDay === day ? "ring-2 ring-white/25 ring-offset-2 ring-offset-[#0a0d0b]" : ""}`}
-                    >
-                      {StatusIcon && <StatusIcon size={13} strokeWidth={3} className="text-white" />}
-                    </button>
-                  );
-                })}
+            <>
+              <div className="grid grid-cols-[150px_repeat(18,22px)] items-center gap-x-2 border-b border-white/[0.06] px-4 py-2.5 text-[10px] text-white/32 sm:grid-cols-[178px_repeat(18,22px)] sm:px-5">
+                <span className="uppercase tracking-[.12em]">Habit</span>
+                {visibleDays.map((day) => (
+                  <button key={day} onClick={() => setSelectedDay(day)} className={`grid h-6 w-6 place-items-center rounded-full transition ${selectedDay === day ? "bg-proof-green font-black text-black shadow-[0_0_20px_rgba(37,216,111,.24)]" : "hover:bg-white/[0.05]"}`}>{day}</button>
+                ))}
               </div>
-            ))
+
+              {loading ? (
+                <div className="space-y-3 px-4 py-5 sm:px-5">
+                  {Array.from({ length: 4 }, (_, i) => (
+                    <div key={i} className="grid grid-cols-[150px_repeat(18,22px)] items-center gap-x-2 sm:grid-cols-[178px_repeat(18,22px)]">
+                      <div className="h-7 w-32 animate-pulse rounded-lg bg-white/[0.06]" />
+                      {visibleDays.map((day) => (
+                        <div key={day} className="proof-grid-cell animate-pulse border-white/[0.05] bg-white/[0.03]" />
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                habits.map((habit) => (
+                  <div key={habit.id} className="group grid grid-cols-[150px_repeat(18,22px)] items-center gap-x-2 border-b border-white/[0.055] px-4 py-3 last:border-0 sm:grid-cols-[178px_repeat(18,22px)] sm:px-5">
+                    <div className="sticky left-0 z-10 flex min-w-0 items-center gap-2 bg-[#0a0d0b]/95 pr-2 backdrop-blur-sm">
+                      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-white/[0.08] bg-white/[0.025] text-[10px] font-bold text-white/70">{habit.icon}</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs font-bold text-white/90">{habit.name}</p>
+                        <p className="truncate text-[10px] text-white/28">{habit.subtitle}</p>
+                      </div>
+                      <HabitRowMenu onEdit={() => setModal({ mode: "edit", habit })} onDelete={() => setDeleteTarget(habit)} />
+                    </div>
+                    {visibleDays.map((day, dayIndex) => {
+                      const status = habit.statuses[dayIndex] ?? "empty";
+                      const StatusIcon = statusIcons[status];
+                      const editable = day === todayDay || day === yesterdayDay;
+                      const pending = pendingCells.has(cellKey(habit.id, day));
+                      return (
+                        <button
+                          aria-label={`${habit.name}, day ${day}: ${status}`}
+                          key={`${habit.id}-${day}`}
+                          disabled={!editable || pending}
+                          onClick={() => updateCell(habit.id, dayIndex, day)}
+                          className={`proof-grid-cell proof-focus grid place-items-center disabled:cursor-not-allowed disabled:opacity-40 ${statusClasses[status]} ${selectedDay === day ? "ring-2 ring-white/25 ring-offset-2 ring-offset-[#0a0d0b]" : ""}`}
+                        >
+                          {StatusIcon && <StatusIcon size={13} strokeWidth={3} className="text-white" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))
+              )}
+            </>
           )}
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-white/[0.07] px-4 py-3 text-[10px] text-white/38 sm:px-5">
-        <span className="mr-1 inline-flex items-center gap-1.5 text-white/52"><Sparkles size={12} className="text-proof-green" /> Status</span>
-        {(["complete", "missed", "rest", "vacation", "empty"] as HabitStatus[]).map((status) => {
-          const StatusIcon = statusIcons[status];
-          return (
-            <span key={status} className="inline-flex items-center gap-1.5 capitalize">
-              <span className={`grid h-2.5 w-2.5 place-items-center rounded-[3px] border ${statusClasses[status]}`}>
-                {StatusIcon && <StatusIcon size={8} strokeWidth={3.5} className="text-white" />}
+      {!showEmptyState && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-white/[0.07] px-4 py-3 text-[10px] text-white/38 sm:px-5">
+          <span className="mr-1 inline-flex items-center gap-1.5 text-white/52"><Sparkles size={12} className="text-proof-green" /> Status</span>
+          {(["complete", "missed", "rest", "vacation", "empty"] as HabitStatus[]).map((status) => {
+            const StatusIcon = statusIcons[status];
+            return (
+              <span key={status} className="inline-flex items-center gap-1.5 capitalize">
+                <span className={`grid h-2.5 w-2.5 place-items-center rounded-[3px] border ${statusClasses[status]}`}>
+                  {StatusIcon && <StatusIcon size={8} strokeWidth={3.5} className="text-white" />}
+                </span>
+                {status}
               </span>
-              {status}
-            </span>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
+
+      {modal && (
+        <HabitFormModal
+          habit={modal.mode === "edit" ? modal.habit : undefined}
+          onClose={() => setModal(null)}
+          onCreated={handleHabitCreated}
+          onUpdated={handleHabitUpdated}
+        />
+      )}
+
+      {deleteTarget && (
+        <DeleteHabitDialog
+          habitId={deleteTarget.id}
+          habitName={deleteTarget.name}
+          onClose={() => setDeleteTarget(null)}
+          onDeleted={handleHabitDeleted}
+        />
+      )}
     </section>
   );
 }

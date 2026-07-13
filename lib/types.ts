@@ -1,5 +1,9 @@
 export type HabitStatus = "complete" | "missed" | "rest" | "vacation" | "empty";
 
+export const HABIT_CATEGORIES = ["ML / Career", "Fitness / Bulk", "Sleep / Recovery", "Discipline", "Business"] as const;
+
+export type HabitCategory = (typeof HABIT_CATEGORIES)[number];
+
 export interface Habit {
   id: string;
   name: string;
@@ -7,6 +11,8 @@ export interface Habit {
   category: string;
   icon: string;
   statuses: HabitStatus[];
+  isCore: boolean;
+  orderIndex: number;
 }
 
 export interface FeedItem {

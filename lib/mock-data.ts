@@ -11,7 +11,9 @@ export const initialHabits: Habit[] = [
     subtitle: "minimum",
     category: "ML / Career",
     icon: "◉",
-    statuses: p("complete", "complete", "complete", "complete", "complete", "complete", "complete", "rest", "complete", "complete", "complete", "empty", "empty", "empty")
+    statuses: p("complete", "complete", "complete", "complete", "complete", "complete", "complete", "rest", "complete", "complete", "complete", "empty", "empty", "empty"),
+    isCore: true,
+    orderIndex: 0
   },
   {
     id: "code",
@@ -19,7 +21,9 @@ export const initialHabits: Habit[] = [
     subtitle: "something",
     category: "ML / Career",
     icon: "</>",
-    statuses: p("complete", "complete", "complete", "complete", "complete", "complete", "complete", "complete", "complete", "missed", "complete", "vacation", "empty", "empty")
+    statuses: p("complete", "complete", "complete", "complete", "complete", "complete", "complete", "complete", "complete", "missed", "complete", "vacation", "empty", "empty"),
+    isCore: true,
+    orderIndex: 1
   },
   {
     id: "protein",
@@ -27,7 +31,9 @@ export const initialHabits: Habit[] = [
     subtitle: "target",
     category: "Fitness / Bulk",
     icon: "◌",
-    statuses: p("complete", "complete", "complete", "complete", "complete", "rest", "complete", "complete", "complete", "complete", "complete", "empty", "empty", "rest")
+    statuses: p("complete", "complete", "complete", "complete", "complete", "rest", "complete", "complete", "complete", "complete", "complete", "empty", "empty", "rest"),
+    isCore: true,
+    orderIndex: 2
   },
   {
     id: "calories",
@@ -35,7 +41,9 @@ export const initialHabits: Habit[] = [
     subtitle: "target",
     category: "Fitness / Bulk",
     icon: "♨",
-    statuses: p("missed", "complete", "complete", "complete", "complete", "complete", "complete", "rest", "complete", "complete", "complete", "empty", "empty", "complete")
+    statuses: p("missed", "complete", "complete", "complete", "complete", "complete", "complete", "rest", "complete", "complete", "complete", "empty", "empty", "complete"),
+    isCore: true,
+    orderIndex: 3
   },
   {
     id: "gym",
@@ -43,7 +51,9 @@ export const initialHabits: Habit[] = [
     subtitle: "recovery",
     category: "Fitness / Bulk",
     icon: "↔",
-    statuses: p("complete", "complete", "complete", "rest", "complete", "complete", "complete", "vacation", "complete", "rest", "complete", "empty", "empty", "empty")
+    statuses: p("complete", "complete", "complete", "rest", "complete", "complete", "complete", "vacation", "complete", "rest", "complete", "empty", "empty", "empty"),
+    isCore: true,
+    orderIndex: 4
   },
   {
     id: "water",
@@ -51,7 +61,9 @@ export const initialHabits: Habit[] = [
     subtitle: "2.5L",
     category: "Sleep / Recovery",
     icon: "◇",
-    statuses: p("complete", "complete", "complete", "complete", "complete", "complete", "complete", "complete", "complete", "complete", "complete", "complete", "empty", "empty")
+    statuses: p("complete", "complete", "complete", "complete", "complete", "complete", "complete", "complete", "complete", "complete", "complete", "complete", "empty", "empty"),
+    isCore: true,
+    orderIndex: 5
   },
   {
     id: "social",
@@ -59,7 +71,9 @@ export const initialHabits: Habit[] = [
     subtitle: "before 5 PM",
     category: "Discipline",
     icon: "⊘",
-    statuses: p("complete", "complete", "complete", "complete", "complete", "missed", "complete", "complete", "complete", "missed", "complete", "rest", "empty", "empty")
+    statuses: p("complete", "complete", "complete", "complete", "complete", "missed", "complete", "complete", "complete", "missed", "complete", "rest", "empty", "empty"),
+    isCore: true,
+    orderIndex: 6
   }
 ];
 

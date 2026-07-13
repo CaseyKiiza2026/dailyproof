@@ -20,12 +20,14 @@ export async function upsertHabitLog(habitId: string, logDate: string, status: H
   } = await supabase.auth.getUser();
 
   if (!user) {
+    console.error("upsertHabitLog: not authenticated");
     return { success: false, error: "Not authenticated." };
   }
 
   const { data: habit } = await supabase.from("habits").select("id").eq("id", habitId).eq("user_id", user.id).maybeSingle();
 
   if (!habit) {
+    console.error(`upsertHabitLog: habit ${habitId} not found for user ${user.id}`);
     return { success: false, error: "Habit not found." };
   }
 
@@ -38,6 +40,7 @@ export async function upsertHabitLog(habitId: string, logDate: string, status: H
   const yesterday = formatDateKey(yesterdayDate);
 
   if (logDate !== today && logDate !== yesterday) {
+    console.error(`upsertHabitLog: ${logDate} is outside the edit window (today=${today}, yesterday=${yesterday})`);
     return { success: false, error: "This day is outside the edit window." };
   }
 
@@ -51,7 +54,10 @@ export async function upsertHabitLog(habitId: string, logDate: string, status: H
       .eq("user_id", user.id)
       .eq("log_date", logDate);
 
-    if (error) return { success: false, error: error.message };
+    if (error) {
+      console.error("upsertHabitLog: delete failed:", error);
+      return { success: false, error: error.message };
+    }
     return { success: true };
   }
 
@@ -67,6 +73,9 @@ export async function upsertHabitLog(habitId: string, logDate: string, status: H
     { onConflict: "habit_id,log_date" }
   );
 
-  if (error) return { success: false, error: error.message };
+  if (error) {
+    console.error("upsertHabitLog: upsert failed:", error);
+    return { success: false, error: error.message };
+  }
   return { success: true };
 }
