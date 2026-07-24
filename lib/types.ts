@@ -10,7 +10,9 @@ export interface Habit {
   subtitle?: string;
   category: string;
   icon: string;
-  statuses: HabitStatus[];
+  // Every logged day for this habit, keyed by "YYYY-MM-DD". A missing key means
+  // no log row exists for that day (rendered/counted as "empty", never "missed").
+  logsByDate: Record<string, HabitStatus>;
   isCore: boolean;
   orderIndex: number;
 }
