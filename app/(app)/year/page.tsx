@@ -1,14 +1,16 @@
 "use client";
 
-import { useMemo } from "react";
-import { Flame, Grid2X2, Plus, Search } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Flame, Plus } from "lucide-react";
 import { YearHeatmap } from "@/components/year/year-heatmap";
 import { useHabitsData } from "@/lib/hooks/use-habits-data";
 import { useHabitStats } from "@/lib/hooks/use-habit-stats";
 import { dateKeyRange, monthDateKeys } from "@/lib/dates";
+import { HabitFormModal } from "@/components/dashboard/habit-form-modal";
 
 export default function YearPage() {
-  const { habits, earliestLogDate } = useHabitsData();
+  const { habits, earliestLogDate, handleHabitCreated } = useHabitsData();
+  const [addHabitOpen, setAddHabitOpen] = useState(false);
   const realNow = useMemo(() => new Date(), []);
   const year = realNow.getFullYear();
 
@@ -43,14 +45,26 @@ export default function YearPage() {
     <div className="space-y-8">
       <header className="flex items-center justify-between gap-4">
         <h1 className="text-5xl font-black tracking-[-0.06em] sm:text-6xl">{year}</h1>
-        <div className="flex overflow-hidden rounded-2xl border border-white/[0.09] bg-white/[0.025]">
-          {[Grid2X2, Search, Plus].map((Icon, index) => (
-            <button key={index} className={`proof-focus grid h-12 w-12 place-items-center border-r border-white/[0.07] transition last:border-0 hover:bg-white/[0.04] active:scale-95 ${index === 0 ? "bg-proof-green/[0.08] text-proof-green" : "text-white/65"}`}>
-              <Icon size={19} />
-            </button>
-          ))}
-        </div>
+        <button
+          aria-label="Add habit"
+          title="Add habit"
+          onClick={() => setAddHabitOpen(true)}
+          className="proof-focus grid h-12 w-12 place-items-center rounded-2xl border border-white/[0.09] bg-white/[0.025] text-proof-green transition hover:bg-proof-green/[0.08] active:scale-95"
+        >
+          <Plus size={19} />
+        </button>
       </header>
+
+      {addHabitOpen && (
+        <HabitFormModal
+          onClose={() => setAddHabitOpen(false)}
+          onCreated={(id, orderIndex, input) => {
+            handleHabitCreated(id, orderIndex, input);
+            setAddHabitOpen(false);
+          }}
+          onUpdated={() => setAddHabitOpen(false)}
+        />
+      )}
 
       <section className="proof-panel overflow-hidden p-5 sm:p-7">
         <div className="grid grid-cols-2 gap-8">

@@ -1,14 +1,28 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { dateKeyRange, formatDateKey, monthDateKeys } from "@/lib/dates";
 import { HabitStatus } from "@/lib/types";
 import { useHabitsData } from "@/lib/hooks/use-habits-data";
 
 const CYCLE: HabitStatus[] = ["empty", "complete", "missed", "rest", "vacation"];
 
+// Supports deep-linking from the Year page's month tiles: /dashboard?month=YYYY-MM
+// opens straight to that month instead of the real current one.
+function parseMonthParam(value: string | null): { year: number; month: number } | null {
+  if (!value) return null;
+  const match = /^(\d{4})-(\d{2})$/.exec(value);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]) - 1;
+  if (month < 0 || month > 11) return null;
+  return { year, month };
+}
+
 export function useDashboardHabits() {
   const data = useHabitsData();
+  const searchParams = useSearchParams();
 
   const realNow = useMemo(() => new Date(), []);
   const realYear = realNow.getFullYear();
@@ -16,9 +30,11 @@ export function useDashboardHabits() {
   const realDay = realNow.getDate();
   const realToday = formatDateKey(realNow);
 
-  const [viewYear, setViewYear] = useState(realYear);
-  const [viewMonth, setViewMonth] = useState(realMonth);
-  const [selectedDay, setSelectedDay] = useState(realDay);
+  const initialMonth = useMemo(() => parseMonthParam(searchParams.get("month")), []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const [viewYear, setViewYear] = useState(initialMonth?.year ?? realYear);
+  const [viewMonth, setViewMonth] = useState(initialMonth?.month ?? realMonth);
+  const [selectedDay, setSelectedDay] = useState(initialMonth ? 1 : realDay);
 
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
   const isCurrentMonth = viewYear === realYear && viewMonth === realMonth;

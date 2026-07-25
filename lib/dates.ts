@@ -27,3 +27,15 @@ export function monthDateKeys(year: number, month: number, throughDay: number): 
   if (throughDay <= 0) return [];
   return dateKeyRange(new Date(year, month, 1), new Date(year, month, throughDay));
 }
+
+// "10m ago" / "3h ago" / "5d ago" style relative time for feed timestamps.
+export function formatRelativeTime(isoDate: string, now: Date = new Date()): string {
+  const elapsedMs = now.getTime() - new Date(isoDate).getTime();
+  const minutes = Math.floor(elapsedMs / 60000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}

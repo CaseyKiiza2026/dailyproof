@@ -1,20 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Habit } from "@/lib/types";
 import { formatDateKey } from "@/lib/dates";
-import { DayCell, HeatmapTone, MonthCell, useDailyYearCells, useMonthlyYearCells } from "@/lib/hooks/use-year-heatmap";
-
-const TONE_CLASS: Record<HeatmapTone, string> = {
-  empty: "bg-white/[0.05]",
-  "success-1": "bg-emerald-950",
-  "success-2": "bg-emerald-800",
-  "success-3": "bg-emerald-600",
-  "success-4": "bg-proof-green",
-  fail: "bg-proof-red/75",
-  rest: "bg-proof-amber/80",
-  vacation: "bg-proof-violet/75"
-};
+import { DayCell, MonthCell, useDailyYearCells, useMonthlyYearCells } from "@/lib/hooks/use-year-heatmap";
+import { HeatmapTone, TONE_CLASS } from "@/lib/heatmap-tone";
 
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const WEEKDAY_LABELS = ["M", "T", "W", "T", "F", "S", "S"];
@@ -26,6 +17,7 @@ interface YearHeatmapProps {
 }
 
 export function YearHeatmap({ habits, year, realNow }: YearHeatmapProps) {
+  const router = useRouter();
   const [mode, setMode] = useState<"monthly" | "weekly">("weekly");
   const dailyCells = useDailyYearCells(habits, year, realNow);
   const monthlyCells = useMonthlyYearCells(habits, year, realNow);
@@ -99,7 +91,16 @@ export function YearHeatmap({ habits, year, realNow }: YearHeatmapProps) {
       ) : (
         <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
           {monthlyCells.map((cell) => (
-            <MonthButton key={`${cell.year}-${cell.month}`} cell={cell} isCurrent={cell.year === realNow.getFullYear() && cell.month === realNow.getMonth()} />
+            <MonthButton
+              key={`${cell.year}-${cell.month}`}
+              cell={cell}
+              isCurrent={cell.year === realNow.getFullYear() && cell.month === realNow.getMonth()}
+              onOpenInDashboard={
+                cell.isFuture
+                  ? undefined
+                  : () => router.push(`/dashboard?month=${cell.year}-${String(cell.month + 1).padStart(2, "0")}`)
+              }
+            />
           ))}
         </div>
       )}
@@ -143,16 +144,21 @@ function DayButton({ cell, ref }: { cell: DayCell; ref?: React.Ref<HTMLButtonEle
   );
 }
 
-function MonthButton({ cell, isCurrent }: { cell: MonthCell; isCurrent: boolean }) {
+function MonthButton({ cell, isCurrent, onOpenInDashboard }: { cell: MonthCell; isCurrent: boolean; onOpenInDashboard?: () => void }) {
+  const label = cell.isFuture ? `${MONTH_NAMES[cell.month]}: upcoming` : `Open ${MONTH_NAMES[cell.month]} in the Dashboard (${cell.completion}% completion)`;
   return (
-    <div
-      title={cell.isFuture ? "Upcoming" : `${cell.completion}% completion`}
-      className={`proof-focus flex h-24 flex-col items-center justify-center gap-1 rounded-2xl border transition hover:scale-[1.02] ${TONE_CLASS[cell.tone]} ${
-        isCurrent ? "border-white/60 ring-1 ring-white/40" : "border-white/[0.06]"
-      }`}
+    <button
+      type="button"
+      title={cell.isFuture ? "Upcoming" : `${cell.completion}% completion — click to open in Dashboard`}
+      aria-label={label}
+      disabled={!onOpenInDashboard}
+      onClick={onOpenInDashboard}
+      className={`proof-focus flex h-24 flex-col items-center justify-center gap-1 rounded-2xl border transition active:scale-[0.97] disabled:cursor-default ${
+        onOpenInDashboard ? "hover:scale-[1.02] hover:brightness-110" : ""
+      } ${TONE_CLASS[cell.tone]} ${isCurrent ? "border-white/60 ring-1 ring-white/40" : "border-white/[0.06]"}`}
     >
       <span className="text-sm font-bold text-white/90">{MONTH_NAMES[cell.month]}</span>
       {!cell.isFuture && <span className="text-[11px] text-white/70">{cell.completion}%</span>}
-    </div>
+    </button>
   );
 }

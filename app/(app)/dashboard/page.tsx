@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { CalendarDays, CheckCircle2, ChevronDown, Flame, Trophy, XCircle } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { StatCard } from "@/components/ui/stat-card";
@@ -81,6 +81,14 @@ function MonthMenu({
 }
 
 export default function DashboardPage() {
+  return (
+    <Suspense fallback={null}>
+      <DashboardContent />
+    </Suspense>
+  );
+}
+
+function DashboardContent() {
   const dashboard = useDashboardHabits();
   const stats = useHabitStats(dashboard.habits, dashboard.monthlyDateKeys, dashboard.streakDateKeys);
 

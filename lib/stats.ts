@@ -120,14 +120,18 @@ export function computeCompletion(habits: Habit[], dateKeys: string[]): number {
   return denominator === 0 ? 0 : Math.round((complete / denominator) * 100);
 }
 
+// A calendar day counts once toward "missed", regardless of how many habits were
+// marked missed that day — it counts iff the day itself classifies as "fail"
+// (<50% of that day's logged habits complete), the same day-success rule used
+// for streak calculation and `computeCompletedCount`. Rest/vacation days are
+// never "fail" (classifyDate only returns "fail" when something was actually
+// logged complete/missed that day), so they never count as missed.
 export function computeMissedCount(habits: Habit[], dateKeys: string[]): number {
-  let missed = 0;
+  let missedDays = 0;
   for (const dateKey of dateKeys) {
-    for (const habit of habits) {
-      if ((habit.logsByDate[dateKey] ?? "empty") === "missed") missed++;
-    }
+    if (classifyDate(habits, dateKey) === "fail") missedDays++;
   }
-  return missed;
+  return missedDays;
 }
 
 // A calendar day counts once toward "completed", regardless of how many habits

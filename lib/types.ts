@@ -17,13 +17,39 @@ export interface Habit {
   orderIndex: number;
 }
 
-export interface FeedItem {
+export type FriendshipStatus = "pending" | "accepted" | "declined";
+
+export interface FriendProfile {
   id: string;
-  name: string;
-  initials: string;
-  verb: string;
-  target: string;
-  time: string;
-  badge: string;
-  type: "complete" | "rest" | "vacation";
+  username: string;
+}
+
+export interface Friendship {
+  id: string;
+  status: FriendshipStatus;
+  requesterId: string;
+  addresseeId: string;
+  createdAt: string;
+  otherUser: FriendProfile;
+  // Whether the current user is the one who sent this request — determines
+  // whether they see Accept/Decline (addressee) or a "Pending" label (requester).
+  isRequester: boolean;
+}
+
+export type FeedEventType = "log" | "milestone";
+
+export const STREAK_TIERS = ["base", "spark", "ember", "flame", "blaze", "inferno", "legend", "mythic"] as const;
+export type StreakTier = (typeof STREAK_TIERS)[number];
+
+export interface FeedEvent {
+  id: string;
+  userId: string;
+  username: string;
+  eventType: FeedEventType;
+  habitId: string | null;
+  habitName: string | null;
+  status: "complete" | "missed" | null;
+  loggedLate: boolean | null;
+  tierName: StreakTier | null;
+  createdAt: string;
 }
