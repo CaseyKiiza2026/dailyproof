@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Friendship } from "@/lib/types";
+import { FeedEvent, Friendship } from "@/lib/types";
 
 export interface LeaderboardEntry {
   userId: string;
@@ -15,9 +15,25 @@ export interface LeaderboardEntry {
 // computed via the same get_friend_streak RPC (which itself just calls the
 // same compute_current_streak() the milestone trigger uses) — no separate
 // leaderboard-specific math.
-export function useLeaderboard(selfId: string | null, selfUsername: string | null, selfStreak: number, acceptedFriends: Friendship[]) {
+//
+// `events` is the SAME live feed_events stream useFeedData already keeps
+// current via its Realtime subscription (no second channel opened here) — a
+// new event arriving for self or any accepted friend means their streak may
+// have just changed, so it's used as a refetch trigger. Without this, a
+// friend's entry would only ever reflect their streak as of whenever this
+// hook first mounted, going stale the moment they logged anything afterward.
+export function useLeaderboard(
+  selfId: string | null,
+  selfUsername: string | null,
+  selfStreak: number,
+  acceptedFriends: Friendship[],
+  events: FeedEvent[]
+) {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const latestEvent = events[0];
+  const latestEventKey = latestEvent ? `${latestEvent.id}:${latestEvent.userId}` : "";
 
   useEffect(() => {
     let cancelled = false;
@@ -56,7 +72,7 @@ export function useLeaderboard(selfId: string | null, selfUsername: string | nul
     return () => {
       cancelled = true;
     };
-  }, [selfId, selfUsername, selfStreak, acceptedFriends]);
+  }, [selfId, selfUsername, selfStreak, acceptedFriends, latestEventKey]);
 
   return { entries, loading };
 }

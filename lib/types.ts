@@ -55,6 +55,11 @@ export interface FeedEvent {
   createdAt: string;
 }
 
+export interface HabitStatusEntry {
+  habitName: string;
+  status: HabitStatus;
+}
+
 // One grouped card per (user, calendar day) — current state via
 // get_friend_day_summary, never raw per-toggle history.
 export interface DailySummary {
@@ -66,7 +71,19 @@ export interface DailySummary {
   restCount: number;
   vacationCount: number;
   emptyCount: number;
-  statuses: HabitStatus[];
+  statuses: HabitStatusEntry[];
   streak: number;
   lastActivityAt: string;
+}
+
+// One day's worth of named habit statuses + counts — used by the "View
+// activity" 7-day history, fetched on demand per day via get_friend_day_summary.
+export interface DayActivity {
+  logDate: string;
+  completeCount: number;
+  missedCount: number;
+  restCount: number;
+  vacationCount: number;
+  emptyCount: number;
+  statuses: HabitStatusEntry[];
 }

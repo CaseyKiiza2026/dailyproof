@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, Flame } from "lucide-react";
+import { Bed, Check, ChevronDown, Flame, Plane, X } from "lucide-react";
 import { DailySummary, HabitStatus } from "@/lib/types";
-import { formatRelativeTime, formatDateKey } from "@/lib/dates";
+import { formatRelativeTime, formatDateKey, parseDateKey } from "@/lib/dates";
+import { useActivityHistory } from "@/lib/hooks/use-activity-history";
 
 const STATUS_CLASSES: Record<HabitStatus, string> = {
   complete: "bg-proof-green",
@@ -11,6 +12,22 @@ const STATUS_CLASSES: Record<HabitStatus, string> = {
   rest: "bg-proof-amber",
   vacation: "bg-proof-violet",
   empty: "bg-white/[0.08]"
+};
+
+const STATUS_CHIP_CLASSES: Record<HabitStatus, string> = {
+  complete: "border-proof-green/30 bg-proof-green/10 text-proof-green",
+  missed: "border-proof-red/30 bg-proof-red/10 text-proof-red",
+  rest: "border-proof-amber/30 bg-proof-amber/10 text-proof-amber",
+  vacation: "border-proof-violet/30 bg-proof-violet/10 text-proof-violet",
+  empty: "border-white/[0.08] bg-white/[0.03] text-white/35"
+};
+
+const STATUS_ICONS: Record<HabitStatus, typeof Check | null> = {
+  complete: Check,
+  missed: X,
+  rest: Bed,
+  vacation: Plane,
+  empty: null
 };
 
 function initialsOf(username: string) {
@@ -22,12 +39,19 @@ function dayLabel(logDate: string, now: Date) {
   const yesterday = formatDateKey(new Date(now.getTime() - 86400000));
   if (logDate === today) return "Today";
   if (logDate === yesterday) return "Yesterday";
-  return logDate;
+  return parseDateKey(logDate).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 export function DailySummaryCard({ summary, now }: { summary: DailySummary; now: Date }) {
   const [expanded, setExpanded] = useState(false);
+  const activity = useActivityHistory();
   const total = summary.completeCount + summary.missedCount + summary.restCount + summary.vacationCount + summary.emptyCount;
+
+  function handleToggle() {
+    const next = !expanded;
+    setExpanded(next);
+    if (next) activity.load(summary.userId, summary.logDate);
+  }
 
   return (
     <article className="proof-panel p-3.5 transition hover:border-white/[0.14] hover:bg-white/[0.035]">
@@ -46,9 +70,9 @@ export function DailySummaryCard({ summary, now }: { summary: DailySummary; now:
         </span>
       </div>
 
-      <div className={`mt-3 flex flex-wrap items-center gap-1.5 ${expanded ? "gap-2" : ""}`}>
-        {summary.statuses.map((status, index) => (
-          <span key={index} className={`rounded-[4px] ${STATUS_CLASSES[status]} ${expanded ? "h-5 w-5" : "h-3.5 w-3.5"}`} />
+      <div className="mt-3 flex flex-wrap items-center gap-1.5">
+        {summary.statuses.map((entry, index) => (
+          <span key={index} title={entry.habitName} className={`h-3.5 w-3.5 rounded-[4px] ${STATUS_CLASSES[entry.status]}`} />
         ))}
       </div>
 
@@ -83,12 +107,49 @@ export function DailySummaryCard({ summary, now }: { summary: DailySummary; now:
       <div className="mt-3 flex items-center justify-between">
         <span className="text-[10px] text-white/28">{formatRelativeTime(summary.lastActivityAt, now)}</span>
         <button
-          onClick={() => setExpanded((value) => !value)}
+          onClick={handleToggle}
           className="proof-focus flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold text-white/45 transition hover:text-white/80"
         >
-          {expanded ? "Hide" : "View day"} <ChevronDown size={12} className={`transition ${expanded ? "rotate-180" : ""}`} />
+          {expanded ? "Hide" : "View activity"} <ChevronDown size={12} className={`transition ${expanded ? "rotate-180" : ""}`} />
         </button>
       </div>
+
+      {expanded && (
+        <div className="mt-3 space-y-2.5 border-t border-white/[0.06] pt-3">
+          {activity.loading && <p className="text-center text-[11px] text-white/35">Loading last 7 days…</p>}
+          {!activity.loading &&
+            activity.days?.map((day) => (
+              <div key={day.logDate} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold text-white/70">{dayLabel(day.logDate, now)}</p>
+                  <p className="text-[10px] text-white/35">
+                    {day.completeCount} complete · {day.missedCount} missed
+                    {day.restCount > 0 ? ` · ${day.restCount} rest` : ""}
+                    {day.vacationCount > 0 ? ` · ${day.vacationCount} vacation` : ""}
+                  </p>
+                </div>
+                {day.statuses.length === 0 ? (
+                  <p className="mt-2 text-[10px] text-white/25">No habits existed yet on this day.</p>
+                ) : (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {day.statuses.map((entry, index) => {
+                      const Icon = STATUS_ICONS[entry.status];
+                      return (
+                        <span
+                          key={index}
+                          className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-semibold ${STATUS_CHIP_CLASSES[entry.status]}`}
+                        >
+                          {Icon && <Icon size={10} strokeWidth={3} />}
+                          {entry.habitName}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ))}
+        </div>
+      )}
     </article>
   );
 }

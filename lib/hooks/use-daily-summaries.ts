@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { DailySummary, FeedEvent, HabitStatus } from "@/lib/types";
+import { DailySummary, FeedEvent, HabitStatus, HabitStatusEntry } from "@/lib/types";
 
 interface DaySummaryRpcResult {
   complete_count: number;
@@ -10,33 +10,37 @@ interface DaySummaryRpcResult {
   rest_count: number;
   vacation_count: number;
   empty_count: number;
-  statuses: HabitStatus[];
+  statuses: { habit_name: string; status: HabitStatus }[];
 }
 
-// Derives one card per (user, calendar day) from the live feed_events list —
-// discovering WHICH days need a card, then fetching each one's CURRENT state
-// via get_friend_day_summary (never raw event history), so rapid same-day
-// toggling of one habit only ever renders as a single current status.
-export function useDailySummaries(events: FeedEvent[]) {
+function toStatusEntries(statuses: DaySummaryRpcResult["statuses"] | undefined): HabitStatusEntry[] {
+  return (statuses ?? []).map((s) => ({ habitName: s.habit_name, status: s.status }));
+}
+
+// Derives one card per user for TODAY ONLY (never a separate card per
+// distinct log_date) — the main feed shows exactly one card per person. A
+// late edit to a prior day (via the today/yesterday edit window) still fires
+// a feed_event with that earlier log_date, but it must never surface as its
+// own standalone card here; it's only visible through "View activity".
+export function useDailySummaries(events: FeedEvent[], todayKey: string) {
   const [summaries, setSummaries] = useState<DailySummary[]>([]);
   const [loading, setLoading] = useState(true);
 
   const pairs = useMemo(() => {
-    const byKey = new Map<string, { userId: string; logDate: string; lastActivityAt: string }>();
+    const byUser = new Map<string, { userId: string; lastActivityAt: string }>();
     for (const event of events) {
-      if (event.eventType !== "log" || !event.logDate) continue;
-      const key = `${event.userId}|${event.logDate}`;
-      const existing = byKey.get(key);
+      if (event.eventType !== "log" || event.logDate !== todayKey) continue;
+      const existing = byUser.get(event.userId);
       if (!existing || event.createdAt > existing.lastActivityAt) {
-        byKey.set(key, { userId: event.userId, logDate: event.logDate, lastActivityAt: event.createdAt });
+        byUser.set(event.userId, { userId: event.userId, lastActivityAt: event.createdAt });
       }
     }
-    return Array.from(byKey.values()).sort((a, b) => (a.lastActivityAt < b.lastActivityAt ? 1 : -1));
-  }, [events]);
+    return Array.from(byUser.values()).sort((a, b) => (a.lastActivityAt < b.lastActivityAt ? 1 : -1));
+  }, [events, todayKey]);
 
   // Stable signature so the fetch effect only reruns when the actual set of
-  // (user, day, latest-activity) pairs changes, not on every render.
-  const pairsSignature = pairs.map((p) => `${p.userId}:${p.logDate}:${p.lastActivityAt}`).join(",");
+  // (user, latest-activity) pairs changes, not on every render.
+  const pairsSignature = pairs.map((p) => `${p.userId}:${p.lastActivityAt}`).join(",");
 
   useEffect(() => {
     let cancelled = false;
@@ -72,19 +76,19 @@ export function useDailySummaries(events: FeedEvent[]) {
         pairs.map(async (pair): Promise<DailySummary> => {
           const { data } = await supabase.rpc("get_friend_day_summary", {
             p_target_user_id: pair.userId,
-            p_target_date: pair.logDate
+            p_target_date: todayKey
           });
           const summary = data as DaySummaryRpcResult | null;
           return {
             userId: pair.userId,
             username: usernameById.get(pair.userId) ?? "unknown",
-            logDate: pair.logDate,
+            logDate: todayKey,
             completeCount: summary?.complete_count ?? 0,
             missedCount: summary?.missed_count ?? 0,
             restCount: summary?.rest_count ?? 0,
             vacationCount: summary?.vacation_count ?? 0,
             emptyCount: summary?.empty_count ?? 0,
-            statuses: summary?.statuses ?? [],
+            statuses: toStatusEntries(summary?.statuses),
             streak: streakById.get(pair.userId) ?? 0,
             lastActivityAt: pair.lastActivityAt
           };
@@ -104,7 +108,7 @@ export function useDailySummaries(events: FeedEvent[]) {
     // pairsSignature is the real dependency; pairs itself is a new array
     // reference every render even when its contents are unchanged.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pairsSignature]);
+  }, [pairsSignature, todayKey]);
 
   return { summaries, loading };
 }

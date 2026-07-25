@@ -10,7 +10,7 @@ import { useFriendsData } from "@/lib/hooks/use-friends-data";
 import { useHabitsData } from "@/lib/hooks/use-habits-data";
 import { useHabitStats } from "@/lib/hooks/use-habit-stats";
 import { useLeaderboard } from "@/lib/hooks/use-leaderboard";
-import { dateKeyRange, monthDateKeys } from "@/lib/dates";
+import { dateKeyRange, formatDateKey, monthDateKeys } from "@/lib/dates";
 import { classifyDate, completionRatio } from "@/lib/stats";
 import { DailySummary, FeedEvent } from "@/lib/types";
 
@@ -22,11 +22,12 @@ type TimelineItem = { kind: "daily"; data: DailySummary; sortKey: string } | { k
 export default function FeedPage() {
   const [tab, setTab] = useState<Tab>("All");
   const feed = useFeedData();
-  const { summaries, loading: summariesLoading } = useDailySummaries(feed.events);
+  const realNow = useMemo(() => new Date(), []);
+  const todayKey = useMemo(() => formatDateKey(realNow), [realNow]);
+  const { summaries, loading: summariesLoading } = useDailySummaries(feed.events, todayKey);
   const friends = useFriendsData();
   const { habits, earliestLogDate } = useHabitsData();
 
-  const realNow = useMemo(() => new Date(), []);
   const monthlyDateKeys = useMemo(
     () => monthDateKeys(realNow.getFullYear(), realNow.getMonth(), realNow.getDate()),
     [realNow]
@@ -50,7 +51,8 @@ export default function FeedPage() {
     friends.userId,
     "you", // never rendered — the page always labels its own entry "You"
     stats.currentStreak,
-    friends.acceptedFriends
+    friends.acceptedFriends,
+    feed.events
   );
 
   const milestoneEvents = feed.events.filter((event) => event.eventType === "milestone");

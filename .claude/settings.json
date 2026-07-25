@@ -11,7 +11,19 @@
       "Bash(curl -s -o /dev/null -w \"dashboard status: %{http_code}\\\\n\" http://localhost:3000/dashboard)",
       "Bash(curl -sI http://localhost:3000/dashboard)",
       "Bash(tail -60 /tmp/dailyproof-dev.log)",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Bash(cp \"C:/Users/casey/AppData/Local/Temp/claude/c--Users-casey-Documents-CASEY-dailyproof/5621df67-8810-48b4-ba62-7ea695e67f4d/scratchpad/seed-daily-v2.mjs\" ./scratch-seed-lb.mjs)",
+      "Bash(node ./scratch-seed-lb.mjs)",
+      "Bash(rm ./scratch-seed-lb.mjs)",
+      "Bash(A_EMAIL=qa_feed_a_1785017889897@example.com A_PASSWORD=TestPass123! B_EMAIL=qa_feed_b_1785017889897@example.com B_PASSWORD=TestPass123! node leaderboard-realtime-check.mjs)",
+      "Bash(cp \"C:/Users/casey/AppData/Local/Temp/claude/c--Users-casey-Documents-CASEY-dailyproof/5621df67-8810-48b4-ba62-7ea695e67f4d/scratchpad/seed-daily-v2.mjs\" ./scratch-seed-lb2.mjs)",
+      "Bash(node ./scratch-seed-lb2.mjs)",
+      "Bash(rm ./scratch-seed-lb2.mjs)",
+      "Bash(A_EMAIL=qa_feed_a_1785017958900@example.com A_PASSWORD=TestPass123! B_EMAIL=qa_feed_b_1785017958900@example.com B_PASSWORD=TestPass123! node leaderboard-realtime-check.mjs)",
+      "Bash(cp \"C:/Users/casey/AppData/Local/Temp/claude/c--Users-casey-Documents-CASEY-dailyproof/5621df67-8810-48b4-ba62-7ea695e67f4d/scratchpad/seed-daily-v2.mjs\" ./scratch-seed-lb3.mjs)",
+      "Bash(node ./scratch-seed-lb3.mjs)",
+      "Bash(rm ./scratch-seed-lb3.mjs)",
+      "Bash(A_EMAIL=qa_feed_a_1785018029549@example.com A_PASSWORD=TestPass123! B_EMAIL=qa_feed_b_1785018029549@example.com B_PASSWORD=TestPass123! node leaderboard-realtime-check.mjs)"
     ]
   }
 }
