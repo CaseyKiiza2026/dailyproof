@@ -13,6 +13,7 @@ interface RawFeedEventRow {
   status: "complete" | "missed" | null;
   logged_late: boolean | null;
   tier_name: string | null;
+  log_date: string | null;
   created_at: string;
 }
 
@@ -27,6 +28,7 @@ function toFeedEvent(row: RawFeedEventRow, username: string): FeedEvent {
     status: row.status,
     loggedLate: row.logged_late,
     tierName: row.tier_name as StreakTier | null,
+    logDate: row.log_date,
     createdAt: row.created_at
   };
 }
@@ -62,7 +64,7 @@ export function useFeedData() {
 
       const { data: rows } = await supabase
         .from("feed_events")
-        .select("id, user_id, event_type, habit_id, habit_name, status, logged_late, tier_name, created_at")
+        .select("id, user_id, event_type, habit_id, habit_name, status, logged_late, tier_name, log_date, created_at")
         .order("created_at", { ascending: false })
         .limit(100);
 

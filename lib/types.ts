@@ -51,5 +51,22 @@ export interface FeedEvent {
   status: "complete" | "missed" | null;
   loggedLate: boolean | null;
   tierName: StreakTier | null;
+  logDate: string | null;
   createdAt: string;
+}
+
+// One grouped card per (user, calendar day) — current state via
+// get_friend_day_summary, never raw per-toggle history.
+export interface DailySummary {
+  userId: string;
+  username: string;
+  logDate: string;
+  completeCount: number;
+  missedCount: number;
+  restCount: number;
+  vacationCount: number;
+  emptyCount: number;
+  statuses: HabitStatus[];
+  streak: number;
+  lastActivityAt: string;
 }

@@ -3,20 +3,26 @@
 import { useMemo, useState } from "react";
 import { Bell, Flame } from "lucide-react";
 import { FeedCard } from "@/components/feed/feed-card";
+import { DailySummaryCard } from "@/components/feed/daily-summary-card";
 import { useFeedData } from "@/lib/hooks/use-feed-data";
+import { useDailySummaries } from "@/lib/hooks/use-daily-summaries";
 import { useFriendsData } from "@/lib/hooks/use-friends-data";
 import { useHabitsData } from "@/lib/hooks/use-habits-data";
 import { useHabitStats } from "@/lib/hooks/use-habit-stats";
 import { useLeaderboard } from "@/lib/hooks/use-leaderboard";
 import { dateKeyRange, monthDateKeys } from "@/lib/dates";
 import { classifyDate, completionRatio } from "@/lib/stats";
+import { DailySummary, FeedEvent } from "@/lib/types";
 
-const TABS = ["All", "Habits", "Milestones"] as const;
+const TABS = ["All", "Daily", "Milestones"] as const;
 type Tab = (typeof TABS)[number];
+
+type TimelineItem = { kind: "daily"; data: DailySummary; sortKey: string } | { kind: "milestone"; data: FeedEvent; sortKey: string };
 
 export default function FeedPage() {
   const [tab, setTab] = useState<Tab>("All");
   const feed = useFeedData();
+  const { summaries, loading: summariesLoading } = useDailySummaries(feed.events);
   const friends = useFriendsData();
   const { habits, earliestLogDate } = useHabitsData();
 
@@ -47,11 +53,20 @@ export default function FeedPage() {
     friends.acceptedFriends
   );
 
-  const visibleEvents = feed.events.filter((event) => {
-    if (tab === "Habits") return event.eventType === "log";
-    if (tab === "Milestones") return event.eventType === "milestone";
+  const milestoneEvents = feed.events.filter((event) => event.eventType === "milestone");
+
+  const timeline: TimelineItem[] = [
+    ...summaries.map((s): TimelineItem => ({ kind: "daily", data: s, sortKey: s.lastActivityAt })),
+    ...milestoneEvents.map((e): TimelineItem => ({ kind: "milestone", data: e, sortKey: e.createdAt }))
+  ].sort((a, b) => (a.sortKey < b.sortKey ? 1 : -1));
+
+  const visibleTimeline = timeline.filter((item) => {
+    if (tab === "Daily") return item.kind === "daily";
+    if (tab === "Milestones") return item.kind === "milestone";
     return true;
   });
+
+  const loading = feed.loading || summariesLoading;
 
   return (
     <div className="space-y-5">
@@ -97,14 +112,20 @@ export default function FeedPage() {
       </div>
 
       <section className="space-y-3">
-        {feed.loading ? (
+        {loading ? (
           <p className="px-1 py-6 text-center text-sm text-white/35">Loading feed…</p>
-        ) : visibleEvents.length === 0 ? (
+        ) : visibleTimeline.length === 0 ? (
           <p className="proof-panel px-5 py-10 text-center text-sm text-white/35">
             Nothing here yet. {friends.acceptedFriends.length === 0 ? "Add a friend to start seeing real check-ins." : "Log a habit to get things moving."}
           </p>
         ) : (
-          visibleEvents.map((item) => <FeedCard key={item.id} item={item} />)
+          visibleTimeline.map((item) =>
+            item.kind === "daily" ? (
+              <DailySummaryCard key={`${item.data.userId}-${item.data.logDate}`} summary={item.data} now={realNow} />
+            ) : (
+              <FeedCard key={item.data.id} item={item.data} />
+            )
+          )
         )}
       </section>
 

@@ -1,11 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { CalendarDays, Grid2X2, LogOut, Plus, RadioTower, UserRound, UsersRound } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { createClient } from "@/lib/supabase/client";
+import { useHabitsData } from "@/lib/hooks/use-habits-data";
+import { dateKeyRange } from "@/lib/dates";
+import { computeCurrentStreak } from "@/lib/stats";
 
 const navigation = [
   { href: "/dashboard", label: "Dashboard", icon: Grid2X2 },
@@ -20,6 +23,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [username, setUsername] = useState<string | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
+  const { habits, earliestLogDate, loading: habitsLoading } = useHabitsData();
+
+  // Same shared calculation as Dashboard/Year/Feed — never a second one, so
+  // the sidebar can't drift from what those pages show for this account.
+  const realNow = useMemo(() => new Date(), []);
+  const streakDateKeys = useMemo(() => {
+    const start = earliestLogDate ? new Date(earliestLogDate) : realNow;
+    return dateKeyRange(start, realNow);
+  }, [earliestLogDate, realNow]);
+  const currentStreak = useMemo(() => computeCurrentStreak(habits, streakDateKeys), [habits, streakDateKeys]);
 
   useEffect(() => {
     const supabase = createClient();
@@ -74,7 +87,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               {loadingProfile ? <span className="h-3 w-3 animate-pulse rounded-full bg-black/30" /> : initials}
             </div>
             <div className="min-w-0 flex-1">
-              {loadingProfile ? (
+              {loadingProfile || habitsLoading ? (
                 <div className="space-y-1.5">
                   <div className="h-3 w-20 animate-pulse rounded bg-white/10" />
                   <div className="h-2.5 w-16 animate-pulse rounded bg-white/[0.06]" />
@@ -82,7 +95,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               ) : (
                 <>
                   <p className="truncate text-sm font-bold">{username ?? "Unknown"}</p>
-                  <p className="truncate text-xs text-white/35">21 day streak</p>
+                  <p className="truncate text-xs text-white/35">{currentStreak} day streak</p>
                 </>
               )}
             </div>
