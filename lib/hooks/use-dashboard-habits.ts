@@ -2,11 +2,9 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { dateKeyRange, formatDateKey, monthDateKeys } from "@/lib/dates";
+import { dateKeyRange, formatDateKey, isoDayOfWeek, monthDateKeys } from "@/lib/dates";
 import { HabitStatus } from "@/lib/types";
 import { useHabitsData } from "@/lib/hooks/use-habits-data";
-
-const CYCLE: HabitStatus[] = ["empty", "complete", "missed", "rest", "vacation"];
 
 // Supports deep-linking from the Year page's month tiles: /dashboard?month=YYYY-MM
 // opens straight to that month instead of the real current one.
@@ -88,14 +86,24 @@ export function useDashboardHabits() {
     setSelectedDay(d);
   }, []);
 
-  async function updateCell(habitId: string, day: number) {
+  const isScheduledDate = useCallback(
+    (habitId: string, day: number) => {
+      const habit = data.habits.find((h) => h.id === habitId);
+      if (!habit) return false;
+      const dow = isoDayOfWeek(formatDateKey(new Date(viewYear, viewMonth, day)));
+      return habit.scheduledDays.includes(dow);
+    },
+    [data.habits, viewYear, viewMonth]
+  );
+
+  // Explicit status selection (dropdown), not a click-cycle. Refuses on
+  // non-scheduled days too, as a defense-in-depth backstop — the grid never
+  // renders a dropdown for those cells in the first place.
+  async function updateCell(habitId: string, day: number, nextStatus: HabitStatus) {
     if (!isEditableDate(day)) return;
-    const habit = data.habits.find((h) => h.id === habitId);
-    if (!habit) return;
+    if (!isScheduledDate(habitId, day)) return;
 
     const dateKey = formatDateKey(new Date(viewYear, viewMonth, day));
-    const previousStatus = habit.logsByDate[dateKey] ?? "empty";
-    const nextStatus = CYCLE[(CYCLE.indexOf(previousStatus) + 1) % CYCLE.length];
     await data.updateCell(habitId, dateKey, nextStatus);
   }
 
@@ -115,6 +123,7 @@ export function useDashboardHabits() {
     monthlyDateKeys,
     streakDateKeys,
     isEditableDate,
+    isScheduledDate,
     jumpToMonth,
     goToToday,
     jumpToDate,

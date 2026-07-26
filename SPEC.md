@@ -99,14 +99,27 @@ Muted text:       rgba(255,255,255,0.35)
 
 These rules were specifically corrected from a naive first pass — **write them down exactly as follows:**
 
+### Habit scheduling
+
+Every habit has a `scheduled_days` array — which days of the week it applies to, stored as ISO 8601 day-of-week integers (1=Monday .. 7=Sunday, matching Postgres's `extract(isodow from date)` exactly so client and server never disagree). Two entry modes in Add/Edit Habit, one underlying model:
+
+- **Daily** — all 7 days selected automatically.
+- **Custom days** — a 7-day (M T W T F S S) toggle; the "N days selected" count shown is always derived live from the toggles, never a separately-typed number.
+
+Existing habits default to Daily (all 7 days) so nothing broke for data that predates scheduling.
+
+A day that isn't scheduled for a given habit is **neutral** for that habit: never rendered as missed, never counted in completion %, streak, or milestone math — simply excluded, the same way a habit that doesn't exist yet is excluded. This applies uniformly across every surface: the owner's own grid, the Year heatmap, Dashboard stat cards, and a friend's Daily feed card / "View activity" history (`get_friend_day_summary` excludes a not-scheduled habit from that day's `statuses` array entirely, rather than showing it as `'empty'`).
+
+### Completion %
+
 - **Completion %** only counts days from the 1st of the month through **today** — future dates are never counted.
-- A day/habit only counts toward the total if a **log row actually exists**. No row = not counted at all (not counted as missed).
+- A day/habit only counts toward the total if a **log row actually exists** AND the habit was **scheduled** for that day. No row = not counted at all (not counted as missed); not scheduled = not counted at all either, regardless of whether a row happens to exist.
 - **Rest** and **vacation** statuses are excluded from both the numerator and denominator of completion % entirely.
-- `completion % = complete / (complete + missed) * 100`, rounded.
+- `completion % = complete / (complete + missed) * 100`, rounded, where `complete`/`missed` are scoped to that day's **scheduled** habits only.
 
 ### Streak rules (current streak + best streak)
 
-A day is "successful" if ≥50% of that day's **logged** habits (excluding rest/vacation) are marked complete.
+A day is "successful" if **strictly more than 60%** of that day's **scheduled and logged** habits (excluding rest/vacation) are marked complete — not "at least half." With 7 habits scheduled on a day, 5/7 (71.4%) passes and 4/7 (57.1%) fails; this is a hard bar, not a rounded one. A habit not scheduled for that day-of-week never enters the ratio on either side.
 
 **Rest day handling:**
 - 1st consecutive rest day → fully neutral, streak unaffected
@@ -180,6 +193,7 @@ habits (
   category text not null,
   is_core boolean default true,
   order_index int default 0,
+  scheduled_days int[] not null default '{1,2,3,4,5,6,7}',  -- ISO day-of-week (1=Mon..7=Sun); which days this habit applies to
   created_at timestamptz default now()
 )
 
@@ -210,7 +224,7 @@ Row Level Security is enabled on all tables — users can only read/write their 
 - ✅ Custom usernames at signup with live availability check
 - ✅ Habit grid UI imported from Claude Design, restyled with status icons (Check/X/Moon/Plane)
 - ✅ Real habit + habit_logs data wiring (no more mock data)
-- ✅ Click-to-cycle with today/yesterday edit window enforcement (server-side date check)
+- ✅ Explicit status-selector dropdown (Complete/Missed/Rest/Vacation/Clear) with today/yesterday edit window enforcement (server-side date check)
 - ✅ Accurate completion % calculation
 - ✅ Accurate streak calculation including rest/vacation escalation rules, verified via simulation
 - ✅ Streak tier color palette designed and validated with live CSS preview

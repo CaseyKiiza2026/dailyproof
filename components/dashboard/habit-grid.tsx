@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Filter, Sparkles, Check, X, Bed, Plane, Flame, Trophy, Plus, Star } from "lucide-react";
+import { Filter, Sparkles, Check, X, Bed, Plane, Eraser, Flame, Trophy, Plus, Star } from "lucide-react";
 import { HabitInput } from "@/lib/actions/habits";
 import { Habit, HabitStatus, HABIT_CATEGORIES } from "@/lib/types";
 import { HabitStats } from "@/lib/stats";
@@ -19,6 +19,11 @@ const statusClasses: Record<HabitStatus, string> = {
   empty: "border-white/[0.07] bg-white/[0.045] hover:bg-white/[0.08] hover:border-white/[0.14]"
 };
 
+// Distinct from both "empty" (a real cell awaiting a log) and "missed" (a red
+// failure) — a dashed, low-opacity cell that never accepts a click. Nothing
+// was ever scheduled here, so there's nothing to log.
+const nonScheduledClass = "border-dashed border-white/[0.05] bg-transparent opacity-30 cursor-default";
+
 const statusIcons: Record<HabitStatus, typeof Check | null> = {
   complete: Check,
   missed: X,
@@ -26,6 +31,14 @@ const statusIcons: Record<HabitStatus, typeof Check | null> = {
   vacation: Plane,
   empty: null
 };
+
+const STATUS_OPTIONS: { status: HabitStatus; label: string; icon: typeof Check }[] = [
+  { status: "complete", label: "Complete", icon: Check },
+  { status: "missed", label: "Missed", icon: X },
+  { status: "rest", label: "Rest", icon: Bed },
+  { status: "vacation", label: "Vacation", icon: Plane },
+  { status: "empty", label: "Clear", icon: Eraser }
+];
 
 type ModalState = { mode: "create" } | { mode: "edit"; habit: Habit };
 
@@ -44,6 +57,7 @@ export function HabitGrid({ dashboard, stats }: HabitGridProps) {
     selectedDay,
     setSelectedDay,
     isEditableDate,
+    isScheduledDate,
     pendingCells,
     seeding,
     updateCell,
@@ -61,6 +75,12 @@ export function HabitGrid({ dashboard, stats }: HabitGridProps) {
   const [activeCategories, setActiveCategories] = useState<Set<string>>(new Set());
   const filterRef = useRef<HTMLDivElement>(null);
 
+  // Which cell's status-selector dropdown is open, keyed `${habitId}:${day}`.
+  // Only one can be open at a time, so a single ref/effect pair is enough —
+  // it's re-pointed at whichever cell is currently open.
+  const [activeCell, setActiveCell] = useState<string | null>(null);
+  const activeCellRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (!filterOpen) return;
     function handleClick(event: MouseEvent) {
@@ -69,6 +89,15 @@ export function HabitGrid({ dashboard, stats }: HabitGridProps) {
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [filterOpen]);
+
+  useEffect(() => {
+    if (!activeCell) return;
+    function handleClick(event: MouseEvent) {
+      if (activeCellRef.current && !activeCellRef.current.contains(event.target as Node)) setActiveCell(null);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [activeCell]);
 
   const presentCategories = useMemo(
     () => HABIT_CATEGORIES.filter((category) => habits.some((h) => h.category === category)),
@@ -116,7 +145,7 @@ export function HabitGrid({ dashboard, stats }: HabitGridProps) {
             <span className="hidden items-center gap-1 rounded-full bg-white/[0.05] px-2 py-0.5 text-[10px] font-bold text-white/60 sm:inline-flex"><Flame size={11} className="text-proof-amber" />{stats.currentStreak}d streak</span>
             <span className="hidden items-center gap-1 rounded-full bg-white/[0.05] px-2 py-0.5 text-[10px] font-bold text-white/60 sm:inline-flex"><Trophy size={11} className="text-proof-violet" />Best {stats.bestStreak}d</span>
           </div>
-          <p className="mt-1 text-xs text-white/35">Tap a cell to cycle its status.</p>
+          <p className="mt-1 text-xs text-white/35">Tap a scheduled cell to set its status.</p>
         </div>
         <div className="flex gap-2">
           <button
@@ -261,17 +290,54 @@ export function HabitGrid({ dashboard, stats }: HabitGridProps) {
                       const status = habit.logsByDate[dateKey] ?? "empty";
                       const StatusIcon = statusIcons[status];
                       const editable = isEditableDate(day);
+                      const scheduled = isScheduledDate(habit.id, day);
                       const pending = pendingCells.has(`${habit.id}:${dateKey}`);
+                      const cellKey = `${habit.id}:${day}`;
+                      const isOpen = activeCell === cellKey;
+                      const canEdit = scheduled && editable && !pending;
+
+                      if (!scheduled) {
+                        return (
+                          <div
+                            key={cellKey}
+                            aria-label={`${habit.name}, day ${day}: not scheduled`}
+                            className={`proof-grid-cell grid place-items-center ${nonScheduledClass}`}
+                          />
+                        );
+                      }
+
                       return (
-                        <button
-                          aria-label={`${habit.name}, day ${day}: ${status}`}
-                          key={`${habit.id}-${day}`}
-                          disabled={!editable || pending}
-                          onClick={() => updateCell(habit.id, day)}
-                          className={`proof-grid-cell proof-focus grid place-items-center transition active:scale-90 disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100 ${statusClasses[status]} ${selectedDay === day ? "ring-2 ring-white/25 ring-offset-2 ring-offset-[#0a0d0b]" : ""}`}
+                        <div
+                          key={cellKey}
+                          ref={isOpen ? activeCellRef : undefined}
+                          className="relative grid place-items-center"
                         >
-                          {StatusIcon && <StatusIcon size={13} strokeWidth={3} className="text-white" />}
-                        </button>
+                          <button
+                            aria-label={`${habit.name}, day ${day}: ${status}`}
+                            disabled={!canEdit}
+                            onClick={() => setActiveCell(isOpen ? null : cellKey)}
+                            className={`proof-grid-cell proof-focus grid place-items-center transition active:scale-90 disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100 ${statusClasses[status]} ${selectedDay === day ? "ring-2 ring-white/25 ring-offset-2 ring-offset-[#0a0d0b]" : ""}`}
+                          >
+                            {StatusIcon && <StatusIcon size={13} strokeWidth={3} className="text-white" />}
+                          </button>
+                          {isOpen && canEdit && (
+                            <div className="absolute left-1/2 top-full z-30 mt-1 w-32 -translate-x-1/2 overflow-hidden rounded-xl border border-white/[0.09] bg-[#0d110f] p-1 shadow-proof-card">
+                              {STATUS_OPTIONS.map(({ status: optionStatus, label, icon: OptionIcon }) => (
+                                <button
+                                  key={optionStatus}
+                                  onClick={() => {
+                                    updateCell(habit.id, day, optionStatus);
+                                    setActiveCell(null);
+                                  }}
+                                  className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs font-semibold text-white/75 transition hover:bg-white/[0.06] active:bg-white/[0.1]"
+                                >
+                                  <OptionIcon size={12} className="shrink-0 text-white/50" />
+                                  {label}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       );
                     })}
                   </div>

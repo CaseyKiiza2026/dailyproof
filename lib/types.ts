@@ -4,6 +4,11 @@ export const HABIT_CATEGORIES = ["ML / Career", "Fitness / Bulk", "Sleep / Recov
 
 export type HabitCategory = (typeof HABIT_CATEGORIES)[number];
 
+// ISO 8601 day-of-week values (1=Monday .. 7=Sunday), Monday-first to match
+// the grid/heatmap's existing weekday label convention elsewhere in the app.
+export const ALL_SCHEDULED_DAYS = [1, 2, 3, 4, 5, 6, 7] as const;
+export const SCHEDULE_DAY_LABELS: Record<number, string> = { 1: "M", 2: "T", 3: "W", 4: "T", 5: "F", 6: "S", 7: "S" };
+
 export interface Habit {
   id: string;
   name: string;
@@ -15,6 +20,10 @@ export interface Habit {
   logsByDate: Record<string, HabitStatus>;
   isCore: boolean;
   orderIndex: number;
+  // ISO 8601 day-of-week values (1=Mon..7=Sun) this habit applies to. A day
+  // not in this list is never scheduled — not counted anywhere, non-interactive
+  // in the grid. Defaults to all 7 days ("Daily") for existing habits.
+  scheduledDays: number[];
 }
 
 export type FriendshipStatus = "pending" | "accepted" | "declined";

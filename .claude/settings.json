@@ -23,7 +23,25 @@
       "Bash(cp \"C:/Users/casey/AppData/Local/Temp/claude/c--Users-casey-Documents-CASEY-dailyproof/5621df67-8810-48b4-ba62-7ea695e67f4d/scratchpad/seed-daily-v2.mjs\" ./scratch-seed-lb3.mjs)",
       "Bash(node ./scratch-seed-lb3.mjs)",
       "Bash(rm ./scratch-seed-lb3.mjs)",
-      "Bash(A_EMAIL=qa_feed_a_1785018029549@example.com A_PASSWORD=TestPass123! B_EMAIL=qa_feed_b_1785018029549@example.com B_PASSWORD=TestPass123! node leaderboard-realtime-check.mjs)"
+      "Bash(A_EMAIL=qa_feed_a_1785018029549@example.com A_PASSWORD=TestPass123! B_EMAIL=qa_feed_b_1785018029549@example.com B_PASSWORD=TestPass123! node leaderboard-realtime-check.mjs)",
+      "Bash(node scratch-test-scheduling.mjs)",
+      "Bash(node -e \"const d=new Date\\('2026-07-26T00:00:00'\\); console.log\\(d.toDateString\\(\\), 'JS getDay \\(0=Sun\\):', d.getDay\\(\\)\\);\")",
+      "Bash(node scratch-test-scheduling-2.mjs)",
+      "Bash(node sched-check.mjs)",
+      "Bash(node sched-zoom.mjs)",
+      "Bash(node sched-zoom2.mjs)",
+      "Bash(node sched-zoom3.mjs)",
+      "Bash(node sched-feed-check.mjs)",
+      "Bash(node sched-final-pass.mjs)",
+      "Bash(node sched-confirm75.mjs)",
+      "Bash(node scratch-cleanup-scheduling.mjs)",
+      "Bash(taskkill //PID 13836 //F)",
+      "Bash(node dropdown-verify.mjs)",
+      "Bash(cp \"C:\\\\Users\\\\casey\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-casey-Documents-CASEY-dailyproof\\\\5621df67-8810-48b4-ba62-7ea695e67f4d\\\\scratchpad\\\\dropdown-verify.mjs\" \"c:\\\\Users\\\\casey\\\\Documents\\\\CASEY\\\\dailyproof\\\\scratch-dropdown-verify.mjs\")",
+      "Bash(node scratch-dropdown-verify.mjs)",
+      "Bash(node scratch-cleanup-dropdown.mjs)",
+      "Bash(rm -f scratch-cleanup-dropdown.mjs)",
+      "Bash(taskkill //PID 26688 //F)"
     ]
   }
 }

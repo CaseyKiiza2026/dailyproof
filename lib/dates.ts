@@ -10,6 +10,14 @@ export function parseDateKey(dateKey: string): Date {
   return new Date(y, m - 1, d);
 }
 
+// ISO 8601 day-of-week: 1=Monday .. 7=Sunday. Matches Postgres's
+// extract(isodow from date) exactly — must stay in sync, since habits'
+// scheduled_days are stored using this same convention on both sides.
+export function isoDayOfWeek(dateKey: string): number {
+  const jsDay = parseDateKey(dateKey).getDay(); // 0=Sunday .. 6=Saturday
+  return jsDay === 0 ? 7 : jsDay;
+}
+
 // Ascending list of date keys from `start` through `end`, inclusive.
 export function dateKeyRange(start: Date, end: Date): string[] {
   const keys: string[] = [];

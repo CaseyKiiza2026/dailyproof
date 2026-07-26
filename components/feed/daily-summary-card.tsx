@@ -129,7 +129,7 @@ export function DailySummaryCard({ summary, now }: { summary: DailySummary; now:
                   </p>
                 </div>
                 {day.statuses.length === 0 ? (
-                  <p className="mt-2 text-[10px] text-white/25">No habits existed yet on this day.</p>
+                  <p className="mt-2 text-[10px] text-white/25">Nothing scheduled on this day.</p>
                 ) : (
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {day.statuses.map((entry, index) => {

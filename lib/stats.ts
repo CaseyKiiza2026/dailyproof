@@ -1,20 +1,32 @@
 import { Habit } from "@/lib/types";
+import { isoDayOfWeek } from "@/lib/dates";
 
 export type DayType = "success" | "fail" | "rest" | "vacation" | "empty";
 
-// A day is "success"/"fail" based on the complete-vs-missed ratio among that day's
-// logged habits (rest/vacation excluded from that ratio). If nothing was logged as
-// complete/missed, the day falls back to "vacation" (if any habit carries that status)
-// or "rest" (if any habit carries that status), or "empty" if nothing was logged at
-// all. Vacation is checked before rest so a mixed rest/vacation day resolves to
-// vacation, per spec section 5 ("vacation wins").
+function isScheduledOn(habit: Habit, dow: number): boolean {
+  return habit.scheduledDays.includes(dow);
+}
+
+// A day is "success"/"fail" based on the complete-vs-missed ratio among that
+// day's SCHEDULED habits that were actually logged (rest/vacation excluded
+// from that ratio, and a habit not scheduled for this day-of-week is excluded
+// entirely — never counted, regardless of whether it happens to have a log).
+// The threshold is strictly more than 60% (5/7 passes, 4/7 fails), not >=50%.
+// If nothing was logged as complete/missed among scheduled habits, the day
+// falls back to "vacation" (if any scheduled habit was marked that) or "rest"
+// (if any scheduled habit was marked that), or "empty" if nothing was logged
+// at all, or if nothing was scheduled that day in the first place. Vacation is
+// checked before rest so a mixed rest/vacation day resolves to vacation, per
+// spec section 5 ("vacation wins").
 export function classifyDate(habits: Habit[], dateKey: string): DayType {
+  const dow = isoDayOfWeek(dateKey);
   let complete = 0;
   let missed = 0;
   let rest = 0;
   let vacation = 0;
 
   for (const habit of habits) {
+    if (!isScheduledOn(habit, dow)) continue;
     const status = habit.logsByDate[dateKey] ?? "empty";
     if (status === "complete") complete++;
     else if (status === "missed") missed++;
@@ -23,18 +35,21 @@ export function classifyDate(habits: Habit[], dateKey: string): DayType {
   }
 
   const logged = complete + missed;
-  if (logged > 0) return complete / logged >= 0.5 ? "success" : "fail";
+  if (logged > 0) return complete / logged > 0.6 ? "success" : "fail";
   if (vacation > 0) return "vacation";
   if (rest > 0) return "rest";
   return "empty";
 }
 
 // The complete/missed ratio for a day classified "success" or "fail" (used for
-// heatmap intensity). Returns 0 for days with no complete/missed logs at all.
+// heatmap intensity), scoped to that day's scheduled habits only. Returns 0
+// for days with no complete/missed logs at all among scheduled habits.
 export function completionRatio(habits: Habit[], dateKey: string): number {
+  const dow = isoDayOfWeek(dateKey);
   let complete = 0;
   let missed = 0;
   for (const habit of habits) {
+    if (!isScheduledOn(habit, dow)) continue;
     const status = habit.logsByDate[dateKey] ?? "empty";
     if (status === "complete") complete++;
     else if (status === "missed") missed++;
@@ -106,11 +121,16 @@ export function computeBestStreak(habits: Habit[], streakDateKeys: string[]): nu
   return simulateStreak(habits, trimEmptyToday(habits, streakDateKeys)).best;
 }
 
+// Completion % across a date range, scoped to each day's scheduled habits only
+// (a habit not scheduled for a given day never contributes to either side of
+// the ratio for that day).
 export function computeCompletion(habits: Habit[], dateKeys: string[]): number {
   let complete = 0;
   let missed = 0;
   for (const dateKey of dateKeys) {
+    const dow = isoDayOfWeek(dateKey);
     for (const habit of habits) {
+      if (!isScheduledOn(habit, dow)) continue;
       const status = habit.logsByDate[dateKey] ?? "empty";
       if (status === "complete") complete++;
       else if (status === "missed") missed++;
@@ -122,10 +142,9 @@ export function computeCompletion(habits: Habit[], dateKeys: string[]): number {
 
 // A calendar day counts once toward "missed", regardless of how many habits were
 // marked missed that day — it counts iff the day itself classifies as "fail"
-// (<50% of that day's logged habits complete), the same day-success rule used
-// for streak calculation and `computeCompletedCount`. Rest/vacation days are
-// never "fail" (classifyDate only returns "fail" when something was actually
-// logged complete/missed that day), so they never count as missed.
+// (<=60% of that day's scheduled+logged habits complete), the same day-success
+// rule used for streak calculation and `computeCompletedCount`. Rest/vacation
+// days, and days with nothing scheduled, are never "fail".
 export function computeMissedCount(habits: Habit[], dateKeys: string[]): number {
   let missedDays = 0;
   for (const dateKey of dateKeys) {
@@ -136,8 +155,9 @@ export function computeMissedCount(habits: Habit[], dateKeys: string[]): number 
 
 // A calendar day counts once toward "completed", regardless of how many habits
 // were ticked that day — it counts iff the day itself classifies as "success"
-// (>=50% of that day's logged habits complete), the same day-success rule used
-// for streak calculation. Reuses `classifyDate`, not a second implementation.
+// (>60% of that day's scheduled, logged habits complete), the same day-success
+// rule used for streak calculation. Reuses `classifyDate`, not a second
+// implementation.
 export function computeCompletedCount(habits: Habit[], dateKeys: string[]): number {
   let completedDays = 0;
   for (const dateKey of dateKeys) {
@@ -146,9 +166,11 @@ export function computeCompletedCount(habits: Habit[], dateKeys: string[]): numb
   return completedDays;
 }
 
-// Days with at least one log of any kind (complete/missed/rest/vacation) — how
-// many days the user engaged with the app at all, as distinct from `completed`
-// (successful days only).
+// Days with at least one log of any kind (complete/missed/rest/vacation) among
+// that day's scheduled habits — how many days the user engaged with the app at
+// all, as distinct from `completed` (successful days only). Reuses
+// `classifyDate` so a day with nothing scheduled is correctly excluded, not
+// counted as "tracked".
 export function computeDaysTracked(habits: Habit[], dateKeys: string[]): number {
   let tracked = 0;
   for (const dateKey of dateKeys) {

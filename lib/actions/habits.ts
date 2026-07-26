@@ -8,6 +8,13 @@ export interface HabitInput {
   name: string;
   category: string;
   isCore: boolean;
+  scheduledDays: number[];
+}
+
+function normalizeScheduledDays(days: number[]): number[] {
+  const valid = days.filter((d) => Number.isInteger(d) && d >= 1 && d <= 7);
+  const unique = Array.from(new Set(valid));
+  return unique.length > 0 ? unique : [1, 2, 3, 4, 5, 6, 7];
 }
 
 export async function createHabit(input: HabitInput): Promise<ActionResult<{ id: string; orderIndex: number }>> {
@@ -39,7 +46,8 @@ export async function createHabit(input: HabitInput): Promise<ActionResult<{ id:
       name,
       category: input.category,
       is_core: input.isCore,
-      order_index: nextOrderIndex
+      order_index: nextOrderIndex,
+      scheduled_days: normalizeScheduledDays(input.scheduledDays)
     })
     .select("id, order_index")
     .single();
@@ -62,7 +70,7 @@ export async function updateHabit(habitId: string, input: HabitInput): Promise<A
 
   const { error } = await supabase
     .from("habits")
-    .update({ name, category: input.category, is_core: input.isCore })
+    .update({ name, category: input.category, is_core: input.isCore, scheduled_days: normalizeScheduledDays(input.scheduledDays) })
     .eq("id", habitId)
     .eq("user_id", user.id);
 

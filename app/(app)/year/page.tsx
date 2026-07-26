@@ -5,6 +5,7 @@ import { Flame, Plus } from "lucide-react";
 import { YearHeatmap } from "@/components/year/year-heatmap";
 import { useHabitsData } from "@/lib/hooks/use-habits-data";
 import { useHabitStats } from "@/lib/hooks/use-habit-stats";
+import { computeDaysTracked } from "@/lib/stats";
 import { dateKeyRange, monthDateKeys } from "@/lib/dates";
 import { HabitFormModal } from "@/components/dashboard/habit-form-modal";
 
@@ -30,16 +31,11 @@ export default function YearPage() {
   const stats = useHabitStats(habits, monthlyDateKeys, streakDateKeys);
 
   // "Days tracked" = days with any log at all (complete/missed/rest/vacation) —
-  // distinct from "Completed" (successful days only, Fix 1). Surfaced explicitly
-  // in the writeup since the original mock number didn't make this distinction.
-  const daysTracked = useMemo(() => {
-    let tracked = 0;
-    for (const dateKey of yearDateKeys) {
-      const hasLog = habits.some((h) => (h.logsByDate[dateKey] ?? "empty") !== "empty");
-      if (hasLog) tracked++;
-    }
-    return tracked;
-  }, [habits, yearDateKeys]);
+  // distinct from "Completed" (successful days only, Fix 1). Routed through
+  // computeDaysTracked (lib/stats.ts) rather than a local reimplementation, so
+  // it inherits schedule-awareness (a day with nothing scheduled isn't "tracked")
+  // instead of drifting from the single source of truth.
+  const daysTracked = useMemo(() => computeDaysTracked(habits, yearDateKeys), [habits, yearDateKeys]);
 
   return (
     <div className="space-y-8">

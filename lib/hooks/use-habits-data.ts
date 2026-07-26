@@ -41,7 +41,7 @@ export function useHabitsData() {
 
       const { data: habitRows } = await supabase
         .from("habits")
-        .select("id, name, category, order_index, is_core")
+        .select("id, name, category, order_index, is_core, scheduled_days")
         .eq("user_id", user.id)
         .order("order_index", { ascending: true });
 
@@ -66,7 +66,8 @@ export function useHabitsData() {
           icon: habitIcon(row.name),
           logsByDate,
           isCore: row.is_core,
-          orderIndex: row.order_index
+          orderIndex: row.order_index,
+          scheduledDays: row.scheduled_days ?? [1, 2, 3, 4, 5, 6, 7]
         };
       });
 
@@ -137,7 +138,8 @@ export function useHabitsData() {
         icon: habitIcon(input.name),
         logsByDate: {},
         isCore: input.isCore,
-        orderIndex
+        orderIndex,
+        scheduledDays: input.scheduledDays
       }
     ]);
   }
@@ -146,7 +148,15 @@ export function useHabitsData() {
     setHabits((current) =>
       current.map((h) =>
         h.id === id
-          ? { ...h, name: input.name, category: input.category, subtitle: input.category, icon: habitIcon(input.name), isCore: input.isCore }
+          ? {
+              ...h,
+              name: input.name,
+              category: input.category,
+              subtitle: input.category,
+              icon: habitIcon(input.name),
+              isCore: input.isCore,
+              scheduledDays: input.scheduledDays
+            }
           : h
       )
     );
@@ -171,7 +181,8 @@ export function useHabitsData() {
         icon: habitIcon(row.name),
         logsByDate: {},
         isCore: true,
-        orderIndex: row.order_index
+        orderIndex: row.order_index,
+        scheduledDays: [1, 2, 3, 4, 5, 6, 7]
       }))
     );
   }
