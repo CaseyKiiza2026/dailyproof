@@ -17,30 +17,35 @@ function toStatusEntries(statuses: DaySummaryRpcResult["statuses"] | undefined):
   return (statuses ?? []).map((s) => ({ habitName: s.habit_name, status: s.status }));
 }
 
-// Derives one card per user for TODAY ONLY (never a separate card per
-// distinct log_date) — the main feed shows exactly one card per person. A
-// late edit to a prior day (via the today/yesterday edit window) still fires
-// a feed_event with that earlier log_date, but it must never surface as its
-// own standalone card here; it's only visible through "View activity".
-export function useDailySummaries(events: FeedEvent[], todayKey: string) {
+// Derives up to two cards per user — one for TODAY, one for YESTERDAY — each
+// only if that person actually has a 'log' feed_event for that specific day.
+// This mirrors the today/yesterday edit window: a late edit to yesterday is
+// now just as visible as a same-day log, as its own standalone card, not
+// merged into today's or hidden. Anything older than yesterday still never
+// gets a standalone card here; it's only visible through "View activity".
+export function useDailySummaries(events: FeedEvent[], todayKey: string, yesterdayKey: string) {
   const [summaries, setSummaries] = useState<DailySummary[]>([]);
   const [loading, setLoading] = useState(true);
 
   const pairs = useMemo(() => {
-    const byUser = new Map<string, { userId: string; lastActivityAt: string }>();
+    // Keyed by `${userId}:${logDate}` so today and yesterday for the same
+    // person are tracked as two independent entries, not collapsed into one.
+    const byKey = new Map<string, { userId: string; logDate: string; lastActivityAt: string }>();
     for (const event of events) {
-      if (event.eventType !== "log" || event.logDate !== todayKey) continue;
-      const existing = byUser.get(event.userId);
+      if (event.eventType !== "log") continue;
+      if (event.logDate !== todayKey && event.logDate !== yesterdayKey) continue;
+      const key = `${event.userId}:${event.logDate}`;
+      const existing = byKey.get(key);
       if (!existing || event.createdAt > existing.lastActivityAt) {
-        byUser.set(event.userId, { userId: event.userId, lastActivityAt: event.createdAt });
+        byKey.set(key, { userId: event.userId, logDate: event.logDate, lastActivityAt: event.createdAt });
       }
     }
-    return Array.from(byUser.values()).sort((a, b) => (a.lastActivityAt < b.lastActivityAt ? 1 : -1));
-  }, [events, todayKey]);
+    return Array.from(byKey.values()).sort((a, b) => (a.lastActivityAt < b.lastActivityAt ? 1 : -1));
+  }, [events, todayKey, yesterdayKey]);
 
   // Stable signature so the fetch effect only reruns when the actual set of
-  // (user, latest-activity) pairs changes, not on every render.
-  const pairsSignature = pairs.map((p) => `${p.userId}:${p.lastActivityAt}`).join(",");
+  // (user, day, latest-activity) pairs changes, not on every render.
+  const pairsSignature = pairs.map((p) => `${p.userId}:${p.logDate}:${p.lastActivityAt}`).join(",");
 
   useEffect(() => {
     let cancelled = false;
@@ -76,13 +81,13 @@ export function useDailySummaries(events: FeedEvent[], todayKey: string) {
         pairs.map(async (pair): Promise<DailySummary> => {
           const { data } = await supabase.rpc("get_friend_day_summary", {
             p_target_user_id: pair.userId,
-            p_target_date: todayKey
+            p_target_date: pair.logDate
           });
           const summary = data as DaySummaryRpcResult | null;
           return {
             userId: pair.userId,
             username: usernameById.get(pair.userId) ?? "unknown",
-            logDate: todayKey,
+            logDate: pair.logDate,
             completeCount: summary?.complete_count ?? 0,
             missedCount: summary?.missed_count ?? 0,
             restCount: summary?.rest_count ?? 0,
@@ -108,7 +113,7 @@ export function useDailySummaries(events: FeedEvent[], todayKey: string) {
     // pairsSignature is the real dependency; pairs itself is a new array
     // reference every render even when its contents are unchanged.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pairsSignature, todayKey]);
+  }, [pairsSignature, todayKey, yesterdayKey]);
 
   return { summaries, loading };
 }

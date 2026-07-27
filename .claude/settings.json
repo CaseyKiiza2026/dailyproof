@@ -41,7 +41,14 @@
       "Bash(node scratch-dropdown-verify.mjs)",
       "Bash(node scratch-cleanup-dropdown.mjs)",
       "Bash(rm -f scratch-cleanup-dropdown.mjs)",
-      "Bash(taskkill //PID 26688 //F)"
+      "Bash(taskkill //PID 26688 //F)",
+      "Bash(node scratch-seed-daily-2cards.mjs)",
+      "Bash(node dc2-check.mjs)",
+      "Bash(node scratch-check-created-at.mjs)",
+      "Bash(node scratch-backdate-habit.mjs)",
+      "Bash(node scratch-cleanup-dc2.mjs)",
+      "Bash(rm -f scratch-seed-daily-2cards.mjs scratch-check-created-at.mjs scratch-backdate-habit.mjs scratch-cleanup-dc2.mjs)",
+      "Bash(taskkill //PID 20872 //F)"
     ]
   }
 }

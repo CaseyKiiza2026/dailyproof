@@ -24,7 +24,8 @@ export default function FeedPage() {
   const feed = useFeedData();
   const realNow = useMemo(() => new Date(), []);
   const todayKey = useMemo(() => formatDateKey(realNow), [realNow]);
-  const { summaries, loading: summariesLoading } = useDailySummaries(feed.events, todayKey);
+  const yesterdayKey = useMemo(() => formatDateKey(new Date(realNow.getTime() - 86400000)), [realNow]);
+  const { summaries, loading: summariesLoading } = useDailySummaries(feed.events, todayKey, yesterdayKey);
   const friends = useFriendsData();
   const { habits, earliestLogDate } = useHabitsData();
 

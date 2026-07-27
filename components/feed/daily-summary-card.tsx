@@ -47,10 +47,14 @@ export function DailySummaryCard({ summary, now }: { summary: DailySummary; now:
   const activity = useActivityHistory();
   const total = summary.completeCount + summary.missedCount + summary.restCount + summary.vacationCount + summary.emptyCount;
 
+  // Always anchored on real "today", not summary.logDate — a Yesterday card's
+  // "View activity" must show the same today-through-6-days-ago range as the
+  // Today card's, not shift back a day, so the two standalone cards and the
+  // history panel never disagree about what "the last 7 days" means.
   function handleToggle() {
     const next = !expanded;
     setExpanded(next);
-    if (next) activity.load(summary.userId, summary.logDate);
+    if (next) activity.load(summary.userId, formatDateKey(now));
   }
 
   return (
