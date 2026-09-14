@@ -1,7 +1,7 @@
 import { Habit } from "@/lib/types";
 import { isoDayOfWeek } from "@/lib/dates";
 
-export type DayType = "success" | "fail" | "rest" | "vacation" | "empty";
+export type DayType = "success" | "fail" | "rest" | "vacation" | "empty" | "unscheduled";
 
 function isScheduledOn(habit: Habit, dow: number): boolean {
   return habit.scheduledDays.includes(dow);
@@ -14,12 +14,13 @@ function isScheduledOn(habit: Habit, dow: number): boolean {
 // The threshold is strictly more than 60% (5/7 passes, 4/7 fails), not >=50%.
 // If nothing was logged as complete/missed among scheduled habits, the day
 // falls back to "vacation" (if any scheduled habit was marked that) or "rest"
-// (if any scheduled habit was marked that), or "empty" if nothing was logged
-// at all, or if nothing was scheduled that day in the first place. Vacation is
+// (if any scheduled habit was marked that), or "empty" if nothing was logged.
+// A day with nothing scheduled is a separate neutral state. Vacation is
 // checked before rest so a mixed rest/vacation day resolves to vacation, per
 // spec section 5 ("vacation wins").
 export function classifyDate(habits: Habit[], dateKey: string): DayType {
   const dow = isoDayOfWeek(dateKey);
+  if (!habits.some((habit) => isScheduledOn(habit, dow))) return "unscheduled";
   let complete = 0;
   let missed = 0;
   let rest = 0;
@@ -74,6 +75,9 @@ export function simulateStreak(habits: Habit[], dateKeys: string[]): { streak: n
     const type = classifyDate(habits, dateKey);
 
     switch (type) {
+      case "unscheduled":
+        // No opportunity to log: freeze the streak and rest/vacation counters.
+        break;
       case "success":
         streak += 1;
         consecutiveRest = 0;
@@ -174,7 +178,8 @@ export function computeCompletedCount(habits: Habit[], dateKeys: string[]): numb
 export function computeDaysTracked(habits: Habit[], dateKeys: string[]): number {
   let tracked = 0;
   for (const dateKey of dateKeys) {
-    if (classifyDate(habits, dateKey) !== "empty") tracked++;
+    const type = classifyDate(habits, dateKey);
+    if (type !== "empty" && type !== "unscheduled") tracked++;
   }
   return tracked;
 }

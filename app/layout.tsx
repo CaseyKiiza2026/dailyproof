@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { UserClockProvider } from "@/components/layout/user-clock";
 
 export const metadata: Metadata = {
   title: "DailyProof",
@@ -9,7 +10,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body><UserClockProvider>{children}</UserClockProvider></body>
     </html>
   );
 }

@@ -1,5 +1,7 @@
 "use client";
 
+import { useUserClock } from "@/components/layout/user-clock";
+
 import { useMemo, useState } from "react";
 import { Bell, Flame } from "lucide-react";
 import { FeedCard } from "@/components/feed/feed-card";
@@ -10,7 +12,8 @@ import { useFriendsData } from "@/lib/hooks/use-friends-data";
 import { useHabitsData } from "@/lib/hooks/use-habits-data";
 import { useHabitStats } from "@/lib/hooks/use-habit-stats";
 import { useLeaderboard } from "@/lib/hooks/use-leaderboard";
-import { dateKeyRange, formatDateKey, monthDateKeys } from "@/lib/dates";
+import { parseDateKey, dateKeyRange, monthDateKeys } from "@/lib/dates";
+import { shiftDateKey } from "@/lib/timezone";
 import { classifyDate, completionRatio } from "@/lib/stats";
 import { DailySummary, FeedEvent } from "@/lib/types";
 
@@ -22,10 +25,9 @@ type TimelineItem = { kind: "daily"; data: DailySummary; sortKey: string } | { k
 export default function FeedPage() {
   const [tab, setTab] = useState<Tab>("All");
   const feed = useFeedData();
-  const realNow = useMemo(() => new Date(), []);
-  const todayKey = useMemo(() => formatDateKey(realNow), [realNow]);
-  const yesterdayKey = useMemo(() => formatDateKey(new Date(realNow.getTime() - 86400000)), [realNow]);
-  const { summaries, loading: summariesLoading } = useDailySummaries(feed.events, todayKey, yesterdayKey);
+  const { todayDate: realNow, now, today: todayKey } = useUserClock();
+  const minute = Math.floor(now.getTime() / 60000);
+  const { summaries, loading: summariesLoading, error: summariesError } = useDailySummaries(feed.events, minute);
   const friends = useFriendsData();
   const { habits, earliestLogDate } = useHabitsData();
 
@@ -34,14 +36,14 @@ export default function FeedPage() {
     [realNow]
   );
   const streakDateKeys = useMemo(() => {
-    const start = earliestLogDate ? new Date(earliestLogDate) : realNow;
+    const start = earliestLogDate ? parseDateKey(earliestLogDate) : realNow;
     return dateKeyRange(start, realNow);
   }, [earliestLogDate, realNow]);
   const stats = useHabitStats(habits, monthlyDateKeys, streakDateKeys);
 
   // Last 7 days' completion intensity, reusing the same classifyDate/
   // completionRatio the Year heatmap uses — not a separate calculation.
-  const last7Days = useMemo(() => dateKeyRange(new Date(realNow.getTime() - 6 * 86400000), realNow), [realNow]);
+  const last7Days = useMemo(() => dateKeyRange(parseDateKey(shiftDateKey(todayKey, -6)), realNow), [todayKey, realNow]);
   const sparkline = last7Days.map((dateKey) => {
     const type = classifyDate(habits, dateKey);
     const ratio = type === "success" || type === "fail" ? completionRatio(habits, dateKey) : 0;
@@ -115,6 +117,7 @@ export default function FeedPage() {
       </div>
 
       <section className="space-y-3">
+        {summariesError && <p role="alert" className="text-sm text-proof-red">{summariesError}</p>}
         {loading ? (
           <p className="px-1 py-6 text-center text-sm text-white/35">Loading feed…</p>
         ) : visibleTimeline.length === 0 ? (
@@ -124,7 +127,7 @@ export default function FeedPage() {
         ) : (
           visibleTimeline.map((item) =>
             item.kind === "daily" ? (
-              <DailySummaryCard key={`${item.data.userId}-${item.data.logDate}`} summary={item.data} now={realNow} />
+              <DailySummaryCard key={`${item.data.userId}-${item.data.logDate}`} summary={item.data} now={now} />
             ) : (
               <FeedCard key={item.data.id} item={item.data} />
             )

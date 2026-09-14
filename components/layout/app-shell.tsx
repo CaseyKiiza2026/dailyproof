@@ -1,13 +1,15 @@
 "use client";
 
+import { useUserClock } from "@/components/layout/user-clock";
+
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { CalendarDays, Grid2X2, LogOut, Plus, RadioTower, UserRound, UsersRound } from "lucide-react";
+import { CalendarDays, Grid2X2, LogOut, RadioTower, UserRound, UsersRound } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { createClient } from "@/lib/supabase/client";
 import { useHabitsData } from "@/lib/hooks/use-habits-data";
-import { dateKeyRange } from "@/lib/dates";
+import { parseDateKey, dateKeyRange } from "@/lib/dates";
 import { computeCurrentStreak } from "@/lib/stats";
 
 const navigation = [
@@ -27,9 +29,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   // Same shared calculation as Dashboard/Year/Feed — never a second one, so
   // the sidebar can't drift from what those pages show for this account.
-  const realNow = useMemo(() => new Date(), []);
+  const { todayDate: realNow } = useUserClock();
   const streakDateKeys = useMemo(() => {
-    const start = earliestLogDate ? new Date(earliestLogDate) : realNow;
+    const start = earliestLogDate ? parseDateKey(earliestLogDate) : realNow;
     return dateKeyRange(start, realNow);
   }, [earliestLogDate, realNow]);
   const currentStreak = useMemo(() => computeCurrentStreak(habits, streakDateKeys), [habits, streakDateKeys]);
@@ -107,35 +109,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       <main className="min-w-0 pb-28 lg:col-start-2 lg:pb-12">
+        <div className="flex justify-end px-4 pt-3 lg:hidden">
+          <button onClick={handleLogout} className="proof-pill proof-focus min-h-11 gap-2 px-4 text-xs"><LogOut size={16} /> Log out</button>
+        </div>
         <div className="mx-auto w-full max-w-[1180px] px-4 py-5 sm:px-6 lg:px-10 lg:py-9">{children}</div>
       </main>
 
       <nav className="fixed bottom-4 left-1/2 z-50 flex w-[calc(100%-24px)] max-w-[560px] -translate-x-1/2 items-center justify-around rounded-[28px] border border-white/[0.10] bg-[#090c0a]/90 px-3 py-2 shadow-[0_22px_90px_rgba(0,0,0,.65),inset_0_1px_0_rgba(255,255,255,.04)] backdrop-blur-xl lg:hidden">
-        {navigation.slice(0, 2).map(({ href, label, icon: Icon }) => {
+        {navigation.map(({ href, label, icon: Icon }) => {
           const active = pathname === href;
           return (
-            <Link key={href} href={href} className={`flex w-16 flex-col items-center gap-1 py-1.5 text-[10px] font-semibold ${active ? "text-proof-green" : "text-white/35"}`}>
+            <Link key={href} href={href} aria-current={active ? "page" : undefined} className={`proof-focus flex min-h-11 min-w-0 flex-1 flex-col items-center gap-1 py-1.5 text-[10px] font-semibold ${active ? "text-proof-green" : "text-white/35"}`}>
               <Icon size={19} strokeWidth={active ? 2.4 : 1.8} />
               {label}
             </Link>
           );
         })}
-        <button aria-label="Quick check-in" className="proof-focus -my-6 grid h-[62px] w-[62px] place-items-center rounded-full border border-proof-green/60 bg-gradient-to-b from-proof-green to-proof-green2 text-black shadow-proof-button">
-          <Plus size={31} strokeWidth={2.1} />
-        </button>
-        {navigation.slice(2, 3).map(({ href, label, icon: Icon }) => {
-          const active = pathname === href;
-          return (
-            <Link key={href} href={href} className={`flex w-16 flex-col items-center gap-1 py-1.5 text-[10px] font-semibold ${active ? "text-proof-green" : "text-white/35"}`}>
-              <Icon size={19} strokeWidth={active ? 2.4 : 1.8} />
-              {label}
-            </Link>
-          );
-        })}
-        <Link href="/profile" className={`flex w-16 flex-col items-center gap-1 py-1.5 text-[10px] font-semibold ${pathname === "/profile" ? "text-proof-green" : "text-white/35"}`}>
-          <UserRound size={19} strokeWidth={pathname === "/profile" ? 2.4 : 1.8} />
-          Profile
-        </Link>
       </nav>
     </div>
   );

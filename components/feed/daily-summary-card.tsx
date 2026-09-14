@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { Bed, Check, ChevronDown, Flame, Plane, X } from "lucide-react";
 import { DailySummary, HabitStatus } from "@/lib/types";
-import { formatRelativeTime, formatDateKey, parseDateKey } from "@/lib/dates";
+import { formatRelativeTime, parseDateKey } from "@/lib/dates";
+import { shiftDateKey } from "@/lib/timezone";
 import { useActivityHistory } from "@/lib/hooks/use-activity-history";
 
 const STATUS_CLASSES: Record<HabitStatus, string> = {
@@ -34,9 +35,8 @@ function initialsOf(username: string) {
   return username.slice(0, 2).toUpperCase();
 }
 
-function dayLabel(logDate: string, now: Date) {
-  const today = formatDateKey(now);
-  const yesterday = formatDateKey(new Date(now.getTime() - 86400000));
+function dayLabel(logDate: string, today: string) {
+  const yesterday = shiftDateKey(today, -1);
   if (logDate === today) return "Today";
   if (logDate === yesterday) return "Yesterday";
   return parseDateKey(logDate).toLocaleDateString(undefined, { month: "short", day: "numeric" });
@@ -45,7 +45,7 @@ function dayLabel(logDate: string, now: Date) {
 export function DailySummaryCard({ summary, now }: { summary: DailySummary; now: Date }) {
   const [expanded, setExpanded] = useState(false);
   const activity = useActivityHistory();
-  const total = summary.completeCount + summary.missedCount + summary.restCount + summary.vacationCount + summary.emptyCount;
+  const total = summary.totalCount;
 
   // Always anchored on real "today", not summary.logDate — a Yesterday card's
   // "View activity" must show the same today-through-6-days-ago range as the
@@ -54,7 +54,7 @@ export function DailySummaryCard({ summary, now }: { summary: DailySummary; now:
   function handleToggle() {
     const next = !expanded;
     setExpanded(next);
-    if (next) activity.load(summary.userId, formatDateKey(now));
+    if (next) activity.load(summary.userId, summary.todayKey);
   }
 
   return (
@@ -67,7 +67,7 @@ export function DailySummaryCard({ summary, now }: { summary: DailySummary; now:
           <p className="text-xs text-white/45">
             <span className="font-semibold text-white/65">@{summary.username}</span> completed {summary.completeCount} of {total} habits
           </p>
-          <p className="mt-0.5 text-sm font-extrabold text-white">{dayLabel(summary.logDate, now)}</p>
+          <p className="mt-0.5 text-sm font-extrabold text-white">{dayLabel(summary.logDate, summary.todayKey)} · {summary.completion}% completion</p>
         </div>
         <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-proof-green/25 bg-proof-green/10 px-2.5 py-1 text-[10px] font-bold text-proof-green">
           <Flame size={11} /> {summary.streak}d streak
@@ -121,18 +121,19 @@ export function DailySummaryCard({ summary, now }: { summary: DailySummary; now:
       {expanded && (
         <div className="mt-3 space-y-2.5 border-t border-white/[0.06] pt-3">
           {activity.loading && <p className="text-center text-[11px] text-white/35">Loading last 7 days…</p>}
+          {activity.error && <p role="alert" className="text-xs text-proof-red">{activity.error}</p>}
           {!activity.loading &&
             activity.days?.map((day) => (
               <div key={day.logDate} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
                 <div className="flex items-center justify-between">
-                  <p className="text-xs font-bold text-white/70">{dayLabel(day.logDate, now)}</p>
+                  <p className="text-xs font-bold text-white/70">{dayLabel(day.logDate, summary.todayKey)}</p>
                   <p className="text-[10px] text-white/35">
-                    {day.completeCount} complete · {day.missedCount} missed
-                    {day.restCount > 0 ? ` · ${day.restCount} rest` : ""}
-                    {day.vacationCount > 0 ? ` · ${day.vacationCount} vacation` : ""}
+                    {day.completeCount}/{day.totalCount} complete · {day.completion}%
                   </p>
                 </div>
-                {day.statuses.length === 0 ? (
+                {!day.detailsVisible || !summary.detailsVisible ? (
+                  <p className="mt-2 text-[10px] text-white/35">Summary-only activity.</p>
+                ) : day.statuses.length === 0 ? (
                   <p className="mt-2 text-[10px] text-white/25">Nothing scheduled on this day.</p>
                 ) : (
                   <div className="mt-2 flex flex-wrap gap-1.5">

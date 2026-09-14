@@ -1,18 +1,20 @@
 "use client";
 
+import { useUserClock } from "@/components/layout/user-clock";
+
 import { useMemo, useState } from "react";
 import { Flame, Plus } from "lucide-react";
 import { YearHeatmap } from "@/components/year/year-heatmap";
 import { useHabitsData } from "@/lib/hooks/use-habits-data";
 import { useHabitStats } from "@/lib/hooks/use-habit-stats";
 import { computeDaysTracked } from "@/lib/stats";
-import { dateKeyRange, monthDateKeys } from "@/lib/dates";
+import { parseDateKey, dateKeyRange, monthDateKeys } from "@/lib/dates";
 import { HabitFormModal } from "@/components/dashboard/habit-form-modal";
 
 export default function YearPage() {
   const { habits, earliestLogDate, handleHabitCreated } = useHabitsData();
   const [addHabitOpen, setAddHabitOpen] = useState(false);
-  const realNow = useMemo(() => new Date(), []);
+  const { todayDate: realNow } = useUserClock();
   const year = realNow.getFullYear();
 
   // Same scope as the Dashboard's default (unbrowsed) view: current month for
@@ -23,7 +25,7 @@ export default function YearPage() {
     [realNow]
   );
   const streakDateKeys = useMemo(() => {
-    const start = earliestLogDate ? new Date(earliestLogDate) : realNow;
+    const start = earliestLogDate ? parseDateKey(earliestLogDate) : realNow;
     return dateKeyRange(start, realNow);
   }, [earliestLogDate, realNow]);
 

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { FeedEvent, Friendship } from "@/lib/types";
+import { useUserClock } from "@/components/layout/user-clock";
 
 export interface LeaderboardEntry {
   userId: string;
@@ -31,6 +32,8 @@ export function useLeaderboard(
 ) {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const { now } = useUserClock();
+  const minute = Math.floor(now.getTime() / 60000);
 
   const latestEvent = events[0];
   const latestEventKey = latestEvent ? `${latestEvent.id}:${latestEvent.userId}` : "";
@@ -72,7 +75,7 @@ export function useLeaderboard(
     return () => {
       cancelled = true;
     };
-  }, [selfId, selfUsername, selfStreak, acceptedFriends, latestEventKey]);
+  }, [selfId, selfUsername, selfStreak, acceptedFriends, latestEventKey, minute]);
 
   return { entries, loading };
 }

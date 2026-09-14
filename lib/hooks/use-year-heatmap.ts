@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Habit } from "@/lib/types";
 import { computeCompletion } from "@/lib/stats";
-import { dateKeyRange, formatDateKey, monthDateKeys } from "@/lib/dates";
+import { dateKeyRange, formatDateKey, monthDateKeys, parseDateKey } from "@/lib/dates";
 import { dayTone, HeatmapTone, successTone } from "@/lib/heatmap-tone";
 
 export type { HeatmapTone } from "@/lib/heatmap-tone";
@@ -26,8 +26,8 @@ export function useDailyYearCells(habits: Habit[], year: number, realToday: Date
     const cells: (DayCell | null)[] = Array.from({ length: leadingPad }, () => null);
 
     for (const dateKey of dateKeyRange(jan1, dec31)) {
-      const date = new Date(dateKey);
-      const isFuture = date.getTime() > realToday.getTime();
+      const date = parseDateKey(dateKey);
+      const isFuture = dateKey > formatDateKey(realToday);
       const isToday = dateKey === formatDateKey(realToday);
       cells.push({
         dateKey,

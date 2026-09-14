@@ -1,12 +1,14 @@
 "use client";
 
+import { useUserClock } from "@/components/layout/user-clock";
+
 import { useMemo } from "react";
 import Link from "next/link";
 import { ArrowRight, Flame, Grid3X3, UsersRound } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { useHabitsData } from "@/lib/hooks/use-habits-data";
 import { useHabitStats } from "@/lib/hooks/use-habit-stats";
-import { dateKeyRange, formatDateKey, monthDateKeys } from "@/lib/dates";
+import { parseDateKey, dateKeyRange, formatDateKey, monthDateKeys } from "@/lib/dates";
 import { dayTone, TONE_CLASS } from "@/lib/heatmap-tone";
 
 const features = [
@@ -22,7 +24,7 @@ const MONTH_NAMES = [
 
 export default function HomePage() {
   const { habits, earliestLogDate } = useHabitsData();
-  const realNow = useMemo(() => new Date(), []);
+  const { todayDate: realNow } = useUserClock();
   const year = realNow.getFullYear();
   const month = realNow.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -31,7 +33,7 @@ export default function HomePage() {
   // completion/completed, full history through today for the streak.
   const monthlyDateKeys = useMemo(() => monthDateKeys(year, month, realNow.getDate()), [year, month, realNow]);
   const streakDateKeys = useMemo(() => {
-    const start = earliestLogDate ? new Date(earliestLogDate) : realNow;
+    const start = earliestLogDate ? parseDateKey(earliestLogDate) : realNow;
     return dateKeyRange(start, realNow);
   }, [earliestLogDate, realNow]);
   const stats = useHabitStats(habits, monthlyDateKeys, streakDateKeys);

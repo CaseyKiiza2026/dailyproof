@@ -1,8 +1,10 @@
 "use client";
 
+import { useUserClock } from "@/components/layout/user-clock";
+
 import { useCallback, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { dateKeyRange, formatDateKey, isoDayOfWeek, monthDateKeys } from "@/lib/dates";
+import { parseDateKey, dateKeyRange, formatDateKey, isoDayOfWeek, monthDateKeys } from "@/lib/dates";
 import { HabitStatus } from "@/lib/types";
 import { useHabitsData } from "@/lib/hooks/use-habits-data";
 
@@ -22,11 +24,10 @@ export function useDashboardHabits() {
   const data = useHabitsData();
   const searchParams = useSearchParams();
 
-  const realNow = useMemo(() => new Date(), []);
+  const { todayDate: realNow, today: realToday, yesterday } = useUserClock();
   const realYear = realNow.getFullYear();
   const realMonth = realNow.getMonth();
   const realDay = realNow.getDate();
-  const realToday = formatDateKey(realNow);
 
   const initialMonth = useMemo(() => parseMonthParam(searchParams.get("month")), []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -52,18 +53,16 @@ export function useDashboardHabits() {
   // the earliest log through REAL today, independent of whichever month is being
   // browsed above (so streak stays constant while browsing history, per design).
   const streakDateKeys = useMemo(() => {
-    const start = data.earliestLogDate ? new Date(data.earliestLogDate) : realNow;
+    const start = data.earliestLogDate ? parseDateKey(data.earliestLogDate) : realNow;
     return dateKeyRange(start, realNow);
   }, [data.earliestLogDate, realNow]);
 
   const isEditableDate = useCallback(
     (day: number) => {
-      const cell = new Date(viewYear, viewMonth, day).getTime();
-      const today = new Date(realYear, realMonth, realDay).getTime();
-      const yesterday = new Date(realYear, realMonth, realDay - 1).getTime();
-      return cell === today || cell === yesterday;
+      const cell = formatDateKey(new Date(viewYear, viewMonth, day));
+      return cell === realToday || cell === yesterday;
     },
-    [viewYear, viewMonth, realYear, realMonth, realDay]
+    [viewYear, viewMonth, realToday, yesterday]
   );
 
   const jumpToMonth = useCallback((year: number, month: number) => {

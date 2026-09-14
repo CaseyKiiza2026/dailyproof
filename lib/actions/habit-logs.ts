@@ -2,15 +2,9 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { HabitStatus } from "@/lib/types";
+import { calendarDays } from "@/lib/timezone";
 
 type UpsertResult = { success: true } | { success: false; error: string };
-
-function formatDateKey(date: Date) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
 
 export async function upsertHabitLog(habitId: string, logDate: string, status: HabitStatus): Promise<UpsertResult> {
   const supabase = await createClient();
@@ -31,13 +25,10 @@ export async function upsertHabitLog(habitId: string, logDate: string, status: H
     return { success: false, error: "Habit not found." };
   }
 
-  // Server-side clock, not the caller's — a spoofed client clock must not be
-  // able to widen the edit window.
-  const now = new Date();
-  const today = formatDateKey(now);
-  const yesterdayDate = new Date(now);
-  yesterdayDate.setDate(now.getDate() - 1);
-  const yesterday = formatDateKey(yesterdayDate);
+  const { data: preferences, error: preferencesError } = await supabase.from("user_preferences")
+    .select("timezone").eq("user_id", user.id).single();
+  if (preferencesError || !preferences) return { success: false, error: "Please finish timezone setup before logging." };
+  const { today, yesterday } = calendarDays(new Date(), preferences.timezone);
 
   if (logDate !== today && logDate !== yesterday) {
     console.error(`upsertHabitLog: ${logDate} is outside the edit window (today=${today}, yesterday=${yesterday})`);

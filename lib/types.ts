@@ -76,6 +76,10 @@ export interface DailySummary {
   username: string;
   logDate: string;
   completeCount: number;
+  totalCount: number;
+  completion: number;
+  todayKey: string;
+  detailsVisible: boolean;
   missedCount: number;
   restCount: number;
   vacationCount: number;
@@ -90,6 +94,9 @@ export interface DailySummary {
 export interface DayActivity {
   logDate: string;
   completeCount: number;
+  totalCount: number;
+  completion: number;
+  detailsVisible: boolean;
   missedCount: number;
   restCount: number;
   vacationCount: number;
