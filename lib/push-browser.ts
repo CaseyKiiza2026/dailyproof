@@ -8,7 +8,7 @@ async function prepareBrowserPush(){
  if(!sdkPromise)sdkPromise=new Promise((resolve,reject)=>{
   const timer=setTimeout(()=>{sdkPromise=null;reject(new Error("Push SDK did not load. Please retry."))},15000);
   window.OneSignalDeferred=window.OneSignalDeferred||[];
-  window.OneSignalDeferred.push(async sdk=>{try{await sdk.init({appId:identity.appId,serviceWorkerPath:"/OneSignalSDKWorker.js"});clearTimeout(timer);resolve(sdk)}catch{clearTimeout(timer);sdkPromise=null;reject(new Error("Push is unavailable on this browser. On iPhone, install DailyProof on your Home Screen first."))}});
+  window.OneSignalDeferred.push(async sdk=>{try{await sdk.init({appId:identity.appId,serviceWorkerPath:"OneSignalSDKWorker.js"});clearTimeout(timer);resolve(sdk)}catch{clearTimeout(timer);sdkPromise=null;reject(new Error("Push is unavailable on this browser. On iPhone, install DailyProof on your Home Screen first."))}});
   const script=document.createElement("script");script.src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";script.async=true;script.onerror=()=>{clearTimeout(timer);sdkPromise=null;reject(new Error("Unable to load push service."))};document.head.appendChild(script);
  });
  const sdk=await sdkPromise;return {sdk,identity};
