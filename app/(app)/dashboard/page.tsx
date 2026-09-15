@@ -8,6 +8,11 @@ import { HabitGrid } from "@/components/dashboard/habit-grid";
 import { useDashboardHabits } from "@/lib/hooks/use-dashboard-habits";
 import { useHabitStats } from "@/lib/hooks/use-habit-stats";
 import styles from "./dashboard.module.css";
+import Link from "next/link";
+import {useUserClock} from "@/components/layout/user-clock";
+import {useTasks} from "@/lib/hooks/use-tasks";
+import {dailyProgress,isTaskOnDay} from "@/lib/daily-progress";
+import {ProofPanel} from "@/components/proofs/proof-panel";
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
@@ -91,7 +96,10 @@ export default function DashboardPage() {
 
 function DashboardContent() {
   const dashboard = useDashboardHabits();
-  const stats = useHabitStats(dashboard.habits, dashboard.monthlyDateKeys, dashboard.streakDateKeys);
+  const habitStats = useHabitStats(dashboard.habits, dashboard.monthlyDateKeys, dashboard.streakDateKeys);
+  const {today,timeZone}=useUserClock();const taskData=useTasks();
+  const progress=dailyProgress(dashboard.habits,taskData.tasks,today,timeZone);
+  const stats={...habitStats,...progress};
 
   const selectedIso = `${dashboard.viewYear}-${String(dashboard.viewMonth + 1).padStart(2, "0")}-${String(
     dashboard.selectedDay
@@ -103,7 +111,7 @@ function DashboardContent() {
         <Logo />
         <div className="proof-pill whitespace-nowrap border-proof-green/25 bg-proof-green/[0.05] px-3 py-2 text-xs font-bold text-proof-green sm:px-4">
           <Trophy size={14} className="mr-2 hidden sm:block" />
-          {stats.completion >= 50 ? "Winning the month" : "Keep pushing"}
+          {stats.completion >= 50 ? "Making progress today" : "Keep pushing"}
         </div>
       </header>
 
@@ -152,7 +160,7 @@ function DashboardContent() {
           ].map(({ label, value, color }) => (
             <div key={label} className="min-w-0 px-2 text-center">
               <dt className="text-[13px] font-medium text-white/55">{label}</dt>
-              <dd className="mt-1 flex flex-wrap items-baseline justify-center gap-x-1"><span className={`text-2xl font-bold leading-tight ${color}`}>{value}</span><span className="text-xs text-white/45">days</span></dd>
+              <dd className="mt-1 flex flex-wrap items-baseline justify-center gap-x-1"><span className={`text-2xl font-bold leading-tight ${color}`}>{value}</span>{label==="Best streak"&&<span className="text-xs text-white/45">days</span>}</dd>
             </div>
           ))}
         </dl>
@@ -162,11 +170,14 @@ function DashboardContent() {
         <StatCard label="Completion" value={`${stats.completion}%`} icon={CheckCircle2} tone="green" />
         <StatCard label="Current streak" value={stats.currentStreak} suffix="days" icon={Flame} tone="green" />
         <StatCard label="Best streak" value={stats.bestStreak} suffix="days" icon={Trophy} tone="amber" />
-        <StatCard label="Missed" value={stats.missed} suffix="days" icon={XCircle} tone="red" />
-        <StatCard label="Completed" value={stats.completed} suffix="days" icon={CheckCircle2} tone="green" />
+        <StatCard label="Missed today" value={stats.missed} icon={XCircle} tone="red" />
+        <StatCard label="Completed today" value={stats.completed} icon={CheckCircle2} tone="green" />
       </section>
 
+      <p className="text-sm text-white/50">Today: {progress.completed}/{progress.total} activities complete. Rest and vacation remain neutral.</p>
+      {taskData.error&&<p role="alert" className="text-sm text-proof-red">{taskData.error}</p>}
       <HabitGrid dashboard={dashboard} stats={stats} />
+      <section className="space-y-3"><div className="flex items-center justify-between"><h2 className="text-lg font-bold">Today’s tasks</h2><Link href="/todos" className="proof-action">All tasks</Link></div>{taskData.tasks.filter(t=>isTaskOnDay(t,today,timeZone)).map(task=><article key={task.id} className="proof-panel space-y-3 p-4"><p className="break-words font-bold">{task.title}</p><button className="proof-action" onClick={()=>void taskData.complete(task)}>{task.status==="completed"?"Reopen":"Complete"}</button>{task.status==="completed"&&<ProofPanel target={{taskId:task.id}}/>}</article>)}</section>
     </div>
   );
 }

@@ -2,11 +2,20 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer components {
+  .proof-action { @apply proof-focus inline-flex min-h-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white/80 disabled:opacity-50; }
+  .proof-field { @apply flex min-w-0 flex-col gap-2 text-sm text-white/70; }
+  .proof-field input, .proof-field select, .proof-field textarea { @apply min-h-11 min-w-0 w-full rounded-xl border border-white/15 bg-[#0d110f] p-3 text-base text-white; color-scheme: dark; }
+}
+
 :root {
   --background: #050706;
   --foreground: #f7faf8;
   --accent: #25d86f;
 }
+
+.proof-calendar { --fc-page-bg-color: #0a0d0b; --fc-neutral-bg-color: #101611; --fc-border-color: #253128; --fc-today-bg-color: #163621; --fc-neutral-text-color: #b4c4b8; }
+.proof-calendar .fc-event { min-height: 28px; cursor: pointer; }
 
 * {
   box-sizing: border-box;

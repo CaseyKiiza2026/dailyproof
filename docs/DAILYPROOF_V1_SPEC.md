@@ -132,6 +132,16 @@ Mobile should use a clean bottom navigation.
 Do not build a separate native mobile application.
 The responsive web application is the mobile application for this version.
 
+DailyProof V1 is a full responsive web application for BOTH desktop and mobile.
+
+Mobile is not the scope of the entire project. Mobile responsiveness is a requirement for every feature.
+
+Desktop remains a first-class experience and must preserve the existing sidebar/layout where appropriate.
+
+Only Phase 0 is specifically a mobile Dashboard correction.
+
+For every later phase — To-Dos, Calendar, Proof, Notifications, Reminders, Friends, and AI — implement the feature for BOTH desktop and mobile using the same underlying data and business logic.
+
 ==================================================
 1. DASHBOARD / DAILY PROOF
 ==================================================
@@ -486,8 +496,8 @@ Convert them using the user's timezone when interpreting calendar days.
 ==================================================
 8. RESPONSIVE PHONE EXPERIENCE
 ==================================================
-
-Mobile is a first-class DailyProof experience.
+Desktop and mobile are both first-class DailyProof experiences.
+This section defines mobile-specific responsive behavior; it does not make DailyProof a mobile-only application.
 
 The existing compact mobile statistics layout should be preserved.
 

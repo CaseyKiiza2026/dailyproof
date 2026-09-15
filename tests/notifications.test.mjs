@@ -1,0 +1,3 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {loadTypeScript} from './load-typescript.mjs';
+const {validateReminder}=loadTypeScript('lib/notifications.ts');
+test('reminders require future UTC instants and a single activity target',()=>{const r={title:'Study',message:'',scheduled_at:'2026-09-15T12:00:00Z',task_id:null,habit_id:null,only_if_incomplete:false},now=new Date('2026-09-14T12:00Z');assert.equal(validateReminder(r,now).title,'Study');assert.throws(()=>validateReminder({...r,scheduled_at:'2026-09-13T12:00Z'},now));assert.throws(()=>validateReminder({...r,task_id:'a',habit_id:'b'},now));});

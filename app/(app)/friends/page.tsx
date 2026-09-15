@@ -8,6 +8,7 @@ import { FriendRowMenu } from "@/components/friends/friend-row-menu";
 import { RemoveFriendDialog } from "@/components/friends/remove-friend-dialog";
 import { NudgeButton } from "@/components/friends/nudge-button";
 import { Friendship } from "@/lib/types";
+import { FriendHistory } from "@/components/friends/friend-history";
 
 function initialsOf(username: string) {
   return username.slice(0, 2).toUpperCase();
@@ -84,7 +85,7 @@ export default function FriendsPage() {
                   aria-label="Decline"
                   disabled={respondingId === request.id}
                   onClick={() => handleRespond(request.id, false)}
-                  className="proof-focus grid h-9 w-9 place-items-center rounded-full border border-white/[0.09] text-white/45 transition hover:border-proof-red/40 hover:text-proof-red active:scale-90 disabled:opacity-50"
+                  className="proof-focus grid h-11 w-11 sm:h-9 sm:w-9 place-items-center rounded-full border border-white/[0.09] text-white/45 transition hover:border-proof-red/40 hover:text-proof-red active:scale-90 disabled:opacity-50"
                 >
                   <X size={15} />
                 </button>
@@ -92,7 +93,7 @@ export default function FriendsPage() {
                   aria-label="Accept"
                   disabled={respondingId === request.id}
                   onClick={() => handleRespond(request.id, true)}
-                  className="proof-focus grid h-9 w-9 place-items-center rounded-full bg-proof-green text-black shadow-proof-button transition hover:brightness-110 active:scale-90 disabled:opacity-50"
+                  className="proof-focus grid h-11 w-11 sm:h-9 sm:w-9 place-items-center rounded-full bg-proof-green text-black shadow-proof-button transition hover:brightness-110 active:scale-90 disabled:opacity-50"
                 >
                   <Check size={15} />
                 </button>
@@ -144,7 +145,8 @@ export default function FriendsPage() {
                 </div>
               ))}
               {visibleAccepted.map((friendship) => (
-                <div key={friendship.id} className="group flex items-center gap-3 border-b border-white/[0.06] px-5 py-4 last:border-0">
+                <div key={friendship.id} className="group space-y-3 border-b border-white/[0.06] px-4 py-4 last:border-0 sm:px-5">
+                 <div className="flex items-center gap-3">
                   <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-proof-green/25 bg-proof-green/10 text-xs font-black text-proof-green">
                     {initialsOf(friendship.otherUser.username)}
                   </div>
@@ -154,6 +156,8 @@ export default function FriendsPage() {
                   </div>
                   <NudgeButton onNudge={() => friends.nudge(friendship.otherUser.id)} />
                   <FriendRowMenu label="Unfriend" onRemove={() => setRemoveTarget(friendship)} />
+                 </div>
+                 <FriendHistory userId={friendship.otherUser.id} />
                 </div>
               ))}
             </>

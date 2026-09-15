@@ -1,11 +1,11 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { deliverNotifications } from "@/lib/push";
 
 type ActionResult<T = undefined> = { success: true; data: T } | { success: false; error: string };
 
-// Stopgap: logs the nudge so it exists once notifications/feed are built (see
-// SPEC.md section 7/10). No delivery mechanism yet — this just records intent.
+// The insert trigger creates notification history atomically with the nudge.
 export async function sendNudge(toUserId: string, habitContext?: string): Promise<ActionResult> {
   const supabase = await createClient();
 
@@ -34,5 +34,6 @@ export async function sendNudge(toUserId: string, habitContext?: string): Promis
   });
 
   if (error) return { success: false, error: error.message };
+  try { await deliverNotifications(); } catch { /* Durable notification remains queued for the scheduler. */ }
   return { success: true, data: undefined };
 }

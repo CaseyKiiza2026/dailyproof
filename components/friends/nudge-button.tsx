@@ -29,7 +29,7 @@ export function NudgeButton({ onNudge }: NudgeButtonProps) {
       aria-label="Nudge"
       disabled={state === "sending"}
       onClick={handleClick}
-      className={`proof-focus grid h-8 w-8 shrink-0 place-items-center rounded-full border transition active:scale-90 ${
+      className={`proof-focus grid h-11 w-11 shrink-0 place-items-center rounded-full border transition active:scale-90 sm:h-8 sm:w-8 ${
         state === "sent"
           ? "border-proof-green/40 bg-proof-green/10 text-proof-green"
           : state === "error"

@@ -1,11 +1,12 @@
 "use client";
 
 import { useUserClock } from "@/components/layout/user-clock";
+import { logoutBrowserPush } from "@/lib/push-browser";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { CalendarDays, Grid2X2, LogOut, RadioTower, UserRound, UsersRound } from "lucide-react";
+import { Sparkles, Bell, CalendarDays, ListTodo, Grid2X2, LogOut, RadioTower, UserRound, UsersRound } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { createClient } from "@/lib/supabase/client";
 import { useHabitsData } from "@/lib/hooks/use-habits-data";
@@ -14,6 +15,10 @@ import { computeCurrentStreak } from "@/lib/stats";
 
 const navigation = [
   { href: "/dashboard", label: "Dashboard", icon: Grid2X2 },
+  { href: "/todos", label: "To-Dos", icon: ListTodo },
+  { href: "/calendar", label: "Calendar", icon: CalendarDays },
+  { href: "/notifications", label: "Notifications", icon: Bell },
+  { href: "/assistant", label: "Assistant", icon: Sparkles },
   { href: "/year", label: "Year", icon: CalendarDays },
   { href: "/feed", label: "Feed", icon: RadioTower },
   { href: "/friends", label: "Friends", icon: UsersRound },
@@ -56,6 +61,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   async function handleLogout() {
+    await logoutBrowserPush();
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push("/auth");
@@ -66,7 +72,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[240px_minmax(0,1fr)]">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[240px] border-r border-white/[0.07] bg-black/35 px-5 py-7 backdrop-blur-xl lg:flex lg:flex-col">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[240px] overflow-y-auto border-r border-white/[0.07] bg-black/35 px-5 py-7 backdrop-blur-xl lg:flex lg:flex-col">
         <Logo />
         <nav className="mt-12 space-y-2">
           {navigation.map(({ href, label, icon: Icon }) => {
@@ -109,14 +115,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       <main className="min-w-0 pb-28 lg:col-start-2 lg:pb-12">
-        <div className="flex justify-end px-4 pt-3 lg:hidden">
+        <div className="flex flex-wrap justify-end gap-2 px-4 pt-3 lg:hidden">
+          <Link href="/notifications" aria-label="Notifications" className="proof-pill proof-focus h-11 w-11"><Bell size={18}/></Link>
+          <Link href="/assistant" aria-label="Assistant" className="proof-pill proof-focus h-11 w-11"><Sparkles size={18}/></Link>
           <button onClick={handleLogout} className="proof-pill proof-focus min-h-11 gap-2 px-4 text-xs"><LogOut size={16} /> Log out</button>
         </div>
         <div className="mx-auto w-full max-w-[1180px] px-4 py-5 sm:px-6 lg:px-10 lg:py-9">{children}</div>
       </main>
 
       <nav className="fixed bottom-4 left-1/2 z-50 flex w-[calc(100%-24px)] max-w-[560px] -translate-x-1/2 items-center justify-around rounded-[28px] border border-white/[0.10] bg-[#090c0a]/90 px-3 py-2 shadow-[0_22px_90px_rgba(0,0,0,.65),inset_0_1px_0_rgba(255,255,255,.04)] backdrop-blur-xl lg:hidden">
-        {navigation.map(({ href, label, icon: Icon }) => {
+        {navigation.filter(({ href }) => ["/dashboard", "/calendar", "/todos", "/friends", "/profile"].includes(href)).map(({ href, label, icon: Icon }) => {
           const active = pathname === href;
           return (
             <Link key={href} href={href} aria-current={active ? "page" : undefined} className={`proof-focus flex min-h-11 min-w-0 flex-1 flex-col items-center gap-1 py-1.5 text-[10px] font-semibold ${active ? "text-proof-green" : "text-white/35"}`}>

@@ -34,3 +34,27 @@ export function calendarDays(instant: Date, timeZone: string) {
 export function calendarDate(instant: Date, timeZone: string): Date {
   return parseDateKey(dateKeyInTimeZone(instant, timeZone));
 }
+
+export function localDateTime(instant: string, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date(instant));
+  const part = (name: string) => parts.find((p) => p.type === name)!.value;
+  return `${part("year")}-${part("month")}-${part("day")}T${part("hour")}:${part("minute")}`;
+}
+
+// Resolve a wall-clock entry in the saved zone. Reject DST gaps and ambiguous
+// repeated times instead of silently scheduling at a different instant.
+export function localDateTimeToUtc(value: string, timeZone: string): string | null {
+  if (!value) return null;
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value) || !isValidTimeZone(timeZone)) throw new Error("Enter a valid date and time.");
+  const nominal = Date.parse(`${value}:00Z`);
+  if (!Number.isFinite(nominal)) throw new Error("Enter a valid date and time.");
+  const matches = new Set<string>();
+  for (const delta of [-36, -12, 0, 12, 36]) {
+    const probe = nominal + delta * 3600000;
+    const offset = Date.parse(`${localDateTime(new Date(probe).toISOString(), timeZone)}:00Z`) - probe;
+    const candidate = new Date(nominal - offset).toISOString();
+    if (localDateTime(candidate, timeZone) === value) matches.add(candidate);
+  }
+  if (matches.size !== 1) throw new Error(matches.size ? "This time occurs twice during daylight saving. Choose a time outside the repeated hour." : "This local time does not exist. Choose another time.");
+  return [...matches][0];
+}

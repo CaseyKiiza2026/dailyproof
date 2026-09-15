@@ -11,6 +11,7 @@ import { HabitFormModal } from "@/components/dashboard/habit-form-modal";
 import { HabitRowMenu } from "@/components/dashboard/habit-row-menu";
 import { DeleteHabitDialog } from "@/components/dashboard/delete-habit-dialog";
 import { MobileHabitList } from "@/components/dashboard/mobile-habit-list";
+import { ProofPanel } from "@/components/proofs/proof-panel";
 
 const statusClasses: Record<HabitStatus, string> = {
   complete: "border-proof-green/70 bg-proof-green shadow-[0_0_16px_rgba(37,216,111,.45),inset_0_1px_0_rgba(255,255,255,.35)]",
@@ -397,6 +398,7 @@ export function HabitGrid({ dashboard, stats }: HabitGridProps) {
         </div>
       )}
 
+      {visibleHabits.filter(habit => habit.logsByDate[formatDateKey(new Date(viewYear,viewMonth,selectedDay))] === "complete").map(habit => <div key={[habit.id,viewYear,viewMonth,selectedDay].join(":")} className="space-y-2 border-t border-white/10 p-4"><p className="break-words text-sm font-semibold">Proof · {habit.name} · {formatDateKey(new Date(viewYear,viewMonth,selectedDay))}</p><ProofPanel target={{habitId:habit.id,logDate:formatDateKey(new Date(viewYear,viewMonth,selectedDay))}}/></div>)}
       {modal && (
         <HabitFormModal
           habit={modal.mode === "edit" ? modal.habit : undefined}
