@@ -15,8 +15,8 @@ import { computeCurrentStreak } from "@/lib/stats";
 
 const navigation = [
   { href: "/dashboard", label: "Dashboard", icon: Grid2X2 },
-  { href: "/todos", label: "To-Dos", icon: ListTodo },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
+  { href: "/todos", label: "To-Dos", icon: ListTodo },
   { href: "/notifications", label: "Notifications", icon: Bell },
   { href: "/assistant", label: "Assistant", icon: Sparkles },
   { href: "/year", label: "Year", icon: CalendarDays },

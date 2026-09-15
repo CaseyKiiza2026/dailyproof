@@ -36,7 +36,7 @@ export function CalendarBoard() {
   <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-bold">{controller.view?.title}</h2><div role="group" aria-label="Calendar view" className="flex gap-2">{[["dayGridMonth","Month"],["timeGridWeek","Week"],["timeGridDay","Day"]].map(([view,label])=><button key={view} className="proof-action" aria-pressed={controller.view?.type===view} onClick={()=>controller.changeView(view)}>{label}</button>)}</div></div>
   <div data-color-scheme="dark" className="proof-calendar min-w-0 overflow-x-auto rounded-xl border border-white/10">
    <div style={{minWidth:controller.view?.type==="timeGridWeek"?700:undefined}}>
-   <FullCalendar controller={controller} plugins={[themePlugin,dayGridPlugin,timeGridPlugin]} initialView="timeGridDay" initialDate={today} timeZone={timeZone} now={()=>new Date()} headerToolbar={false} height={600} events={events} editable={false} eventClick={info=>{const c=data.commitments.find(c=>c.id===info.event.id);if(c)setEditing(c)}} />
+   <FullCalendar controller={controller} plugins={[themePlugin,dayGridPlugin,timeGridPlugin]} initialView="timeGridDay" initialDate={today} timeZone={timeZone} now={()=>new Date()} headerToolbar={false} height={600} events={events} eventMinHeight={48} eventClass="min-h-11" editable={false} eventClick={info=>{const c=data.commitments.find(c=>c.id===info.event.id);if(c)setEditing(c)}} />
    </div>
   </div>
   {!ready&&!error&&<p role="status">Loading calendar…</p>}

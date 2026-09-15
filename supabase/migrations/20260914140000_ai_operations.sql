@@ -7,6 +7,14 @@ begin
  perform pg_advisory_xact_lock(hashtextextended(auth.uid()::text,0));
  for a in select * from jsonb_array_elements(p_actions) loop
   v:=a->'values';target:=coalesce((a->>'id')::uuid,gen_random_uuid());
+  if a->>'expected_updated_at' is not null then
+   if a->>'tool'='update_task' then
+    perform 1 from public.tasks where id=target and user_id=auth.uid() and updated_at=(a->>'expected_updated_at')::timestamptz for update;
+   else
+    perform 1 from public.reminders where id=target and user_id=auth.uid() and updated_at=(a->>'expected_updated_at')::timestamptz for update;
+   end if;
+   if not found then raise exception 'This item changed after review. Request a fresh plan.';end if;
+  end if;
   case a->>'tool'
    when 'create_task' then
     insert into public.tasks(id,user_id,title,description,due_at,scheduled_start,scheduled_end,status,priority) values(target,auth.uid(),v->>'title',coalesce(v->>'description',''),(v->>'due_at')::timestamptz,(v->>'scheduled_start')::timestamptz,(v->>'scheduled_end')::timestamptz,coalesce(v->>'status','pending'),coalesce(v->>'priority','normal'));
