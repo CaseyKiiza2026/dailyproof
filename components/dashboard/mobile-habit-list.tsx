@@ -16,6 +16,7 @@ const statuses = {
 };
 
 interface MobileHabitListProps {
+  presentation?: "grid" | "list";
   dashboard: ReturnType<typeof useDashboardHabits>;
   habits: Habit[];
   onEdit: (habit: Habit) => void;
@@ -25,7 +26,7 @@ interface MobileHabitListProps {
 
 // A day-focused presentation of the existing month grid. All dates, schedules,
 // permissions and writes still come from the same Dashboard hook.
-export function MobileHabitList({ dashboard, habits, onEdit, onDelete, onCreate }: MobileHabitListProps) {
+export function MobileHabitList({ presentation = "list", dashboard, habits, onEdit, onDelete, onCreate }: MobileHabitListProps) {
   const { viewYear, viewMonth, selectedDay, daysInMonth, setSelectedDay, loading, pendingCells } = dashboard;
   const scroller = useRef<HTMLDivElement>(null);
   const selectedButton = useRef<HTMLButtonElement>(null);
@@ -42,13 +43,14 @@ export function MobileHabitList({ dashboard, habits, onEdit, onDelete, onCreate 
     const centerSelection = () => {
       if (strip.clientWidth === 0) return;
       const offset = button.getBoundingClientRect().left - strip.getBoundingClientRect().left;
-      strip.scrollLeft += offset - (strip.clientWidth - button.clientWidth) / 2;
+      const identityWidth = presentation === "grid" ? 160 : 0;
+      strip.scrollLeft += offset - identityWidth - (strip.clientWidth - identityWidth - button.clientWidth) / 2;
     };
     centerSelection();
     const observer = new ResizeObserver(centerSelection);
     observer.observe(strip);
     return () => observer.disconnect();
-  }, [selectedDay, viewMonth, viewYear, loading, hasHabits]);
+  }, [selectedDay, viewMonth, viewYear, loading, hasHabits, presentation]);
 
   if (!loading && dashboard.habits.length === 0) {
     return <div className="px-4 py-8 text-center sm:hidden">
@@ -57,6 +59,57 @@ export function MobileHabitList({ dashboard, habits, onEdit, onDelete, onCreate 
       <div className="mt-5 flex flex-wrap justify-center gap-2">
         <button onClick={dashboard.handleSeedStarterHabits} disabled={dashboard.seeding} className="proof-focus min-h-11 rounded-full bg-proof-green px-4 text-sm font-bold text-black disabled:opacity-60">{dashboard.seeding ? "Adding…" : "Add starter habits"}</button>
         <button onClick={onCreate} className="proof-pill proof-focus min-h-11 px-4 text-sm font-semibold">Add habit</button>
+      </div>
+    </div>;
+  }
+
+  if (presentation === "grid") {
+    const days = Array.from({ length: daysInMonth }, (_, index) => index + 1);
+    const columns = { gridTemplateColumns: `160px repeat(${daysInMonth}, 44px)` };
+    return <div className="min-w-0 sm:hidden" aria-label="Mobile habit grid">
+      <p className="border-b border-white/[0.07] px-4 py-3 text-sm font-semibold text-white/80">{dateLabel}</p>
+      <div ref={scroller} className="overflow-x-auto [scrollbar-width:thin]" tabIndex={0} aria-label="Habit history, scroll horizontally for dates">
+        <div className="grid w-max items-center border-b border-white/[0.07]" style={columns}>
+          <span className="sticky left-0 z-10 self-stretch bg-[#0a0d0b] px-3 py-4 text-sm text-white/55">Habit</span>
+          {days.map((day) => <button key={day} ref={day === selectedDay ? selectedButton : undefined}
+            aria-label={new Date(viewYear, viewMonth, day).toLocaleDateString("en", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+            aria-pressed={day === selectedDay} onClick={() => setSelectedDay(day)}
+            className={`proof-focus flex h-14 w-11 flex-col items-center justify-center text-sm ${day === selectedDay ? "bg-proof-green/15 text-proof-green" : "text-white/55"}`}>
+            <span className="text-xs">{new Date(viewYear, viewMonth, day).toLocaleDateString("en", { weekday: "short" })}</span><span className="font-bold">{day}</span>
+          </button>)}
+        </div>
+        {!loading && habits.map((habit) => <div key={habit.id} className="grid w-max items-center border-b border-white/[0.07]" style={columns}>
+          <div className="sticky left-0 z-10 self-stretch border-r border-white/[0.07] bg-[#0a0d0b] px-3 py-3">
+            <button onClick={() => onEdit(habit)} aria-label={`Edit ${habit.name}`} className="proof-focus min-h-11 w-full text-left">
+              <span className="block break-words text-sm font-bold leading-5 text-white/90 [overflow-wrap:anywhere]">{habit.name}{habit.isCore && <Star size={11} fill="currentColor" aria-label="Core habit" className="ml-1 inline text-proof-amber" />}</span>
+              <span className="mt-1 block text-xs leading-5 text-white/50">{habit.category}</span>
+            </button>
+          </div>
+          {days.map((day) => {
+            const key = formatDateKey(new Date(viewYear, viewMonth, day));
+            const status = habit.logsByDate[key] ?? "empty";
+            const scheduled = dashboard.isScheduledDate(habit.id, day);
+            const canEdit = scheduled && dashboard.isEditableDate(day);
+            const { icon: Icon, style, label } = statuses[status];
+            const description = `${habit.name}, ${key}: ${scheduled ? label : "Not scheduled"}`;
+            return <div key={day} className={`relative grid h-11 w-11 place-items-center focus-within:ring-2 focus-within:ring-inset focus-within:ring-proof-green ${day === selectedDay ? "bg-proof-green/[0.04]" : ""}`}>
+              <span aria-hidden="true" className={`grid h-6 w-6 place-items-center rounded-md border ${scheduled ? style : "border-dashed border-white/15"}`}>
+                {scheduled && <Icon size={15} />}
+              </span>
+              {canEdit ? <select aria-label={description} value={status} disabled={pendingCells.has(`${habit.id}:${key}`)}
+                onChange={(event) => void dashboard.updateCell(habit.id, day, event.target.value as HabitStatus)}
+                className="proof-focus absolute inset-0 h-11 w-11 cursor-pointer opacity-0">
+                {Object.entries(statuses).map(([value, option]) => <option key={value} value={value}>{option.label}</option>)}
+              </select> : <span role="img" aria-label={`${description}${scheduled ? ", read only" : ""}`} className="absolute inset-0" />}
+            </div>;
+          })}
+        </div>)}
+      </div>
+      {loading && <p role="status" className="p-4 text-sm text-white/55">Loading habits…</p>}
+      {!loading && habits.length === 0 && <p className="p-4 text-sm text-white/55">No habits match the selected filters.</p>}
+      <div className="flex flex-wrap gap-x-3 gap-y-2 px-4 py-3 text-xs text-white/55">
+        {Object.entries(statuses).map(([value, { label, icon: Icon }]) => <span key={value} className="inline-flex items-center gap-1"><Icon size={14} />{label}</span>)}
+        <span>Tap a habit name to edit. More options in List.</span>
       </div>
     </div>;
   }

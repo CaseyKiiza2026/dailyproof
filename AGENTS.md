@@ -156,3 +156,18 @@ Avoid:
 - duplicated business logic
 - large monolithic components
 - unrelated refactors during feature work
+
+## DailyProof V1 Source of Truth
+
+The authoritative product specification for the current build is:
+
+`docs/DAILYPROOF_V1_SPEC.md`
+
+Before starting each implementation phase:
+1. Read the relevant section of `docs/DAILYPROOF_V1_SPEC.md`.
+2. Confirm the phase requirements before making changes.
+3. Do not implement requirements from later phases early.
+4. After completing the phase, compare the implementation against the spec before reporting completion.
+5. If existing code conflicts with the spec, preserve working behavior where possible and explicitly report the conflict rather than silently changing product requirements.
+
+The CURRENT PROJECT STATE + OVERRIDES section at the top of the spec takes precedence over older contradictory instructions.

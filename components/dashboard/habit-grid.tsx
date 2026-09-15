@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Filter, Sparkles, Check, X, Bed, Plane, Eraser, Flame, Trophy, Plus, Star } from "lucide-react";
 import { HabitInput } from "@/lib/actions/habits";
 import { Habit, HabitStatus, HABIT_CATEGORIES } from "@/lib/types";
@@ -48,7 +48,26 @@ interface HabitGridProps {
   stats: HabitStats;
 }
 
+const mobileViewKey = "dailyproof.mobileHabitView";
+function readMobileView(): "grid" | "list" {
+  try { return localStorage.getItem(mobileViewKey) === "list" ? "list" : "grid"; }
+  catch { return "grid"; }
+}
+function subscribeMobileView(callback: () => void) {
+  window.addEventListener("storage", callback);
+  return () => window.removeEventListener("storage", callback);
+}
+const defaultMobileView = () => "grid" as const;
+
 export function HabitGrid({ dashboard, stats }: HabitGridProps) {
+  const savedView = useSyncExternalStore(subscribeMobileView, readMobileView, defaultMobileView);
+  const [viewOverride, setViewOverride] = useState<"grid" | "list" | null>(null);
+  const mobileView = viewOverride ?? savedView;
+
+  function selectMobileView(view: "grid" | "list") {
+    setViewOverride(view);
+    try { localStorage.setItem(mobileViewKey, view); } catch { /* Keep switching usable when storage is unavailable. */ }
+  }
   const {
     habits,
     loading,
@@ -207,7 +226,14 @@ export function HabitGrid({ dashboard, stats }: HabitGridProps) {
         </div>
       </div>
 
-      <MobileHabitList dashboard={dashboard} habits={visibleHabits}
+      <div className="flex items-center justify-between gap-3 border-b border-white/[0.07] px-4 py-2 sm:hidden">
+        <span className="text-xs text-white/45">{mobileView === "grid" ? "Swipe grid for dates" : "One day at a time"}</span>
+        <div role="group" aria-label="Mobile habit view" className="flex rounded-xl border border-white/[0.1] p-0.5">
+          {(["grid", "list"] as const).map((view) => <button key={view} type="button" aria-pressed={mobileView === view}
+            onClick={() => selectMobileView(view)} className={`proof-focus min-h-11 min-w-14 rounded-lg px-3 text-sm font-semibold capitalize ${mobileView === view ? "bg-proof-green/15 text-proof-green" : "text-white/55"}`}>{view === "grid" ? "Grid" : "List"}</button>)}
+        </div>
+      </div>
+      <MobileHabitList key={mobileView} presentation={mobileView} dashboard={dashboard} habits={visibleHabits}
         onEdit={(habit) => setModal({ mode: "edit", habit })}
         onDelete={setDeleteTarget} onCreate={() => setModal({ mode: "create" })} />
 
