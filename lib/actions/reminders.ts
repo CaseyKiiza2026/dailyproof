@@ -2,7 +2,7 @@
 import { requireUser } from "@/lib/server-user";
 import { Reminder,ReminderInput,Notification,NotificationSettings,validateReminder } from "@/lib/notifications";
 import { executeWorkActions } from "@/lib/work-service";
-export async function getReminders():Promise<Reminder[]>{const {db,user}=await requireUser();const {data,error}=await db.from("reminders").select("*").eq("user_id",user.id).order("scheduled_at");if(error)throw new Error("Unable to load reminders.");return data;}
+export async function getReminders():Promise<Reminder[]>{const {db,user}=await requireUser();const {data,error}=await db.from("reminders").select("*").eq("user_id",user.id).order("scheduled_at");if(error)throw new Error("Unable to load reminders.", { cause: { code: error?.code } });return data;}
 export async function saveReminder(id:string|null,input:ReminderInput){const values=validateReminder(input);const data=await executeWorkActions([{tool:id?"update_reminder":"create_reminder",id:id??crypto.randomUUID(),values}]);return data[0];}
 export async function cancelReminder(id:string){await executeWorkActions([{tool:"cancel_reminder",id,values:{}}]);}
 export async function getNotifications():Promise<Notification[]>{const {db,user}=await requireUser();const {data,error}=await db.from("notifications").select("id,type,title,body,read_at,created_at,push_status,error").eq("user_id",user.id).order("created_at",{ascending:false}).limit(100);if(error)throw new Error("Unable to load notifications.");return data;}

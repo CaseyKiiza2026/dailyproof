@@ -20,7 +20,9 @@ export function AssistantPanel() {
     setResult(null);
     setApplied(false);
     try {
-      setResult(await askAssistant(question));
+      const response = await askAssistant(question);
+      if (response.ok) setResult(response);
+      else setError(response.error);
     } catch (e) {
       setError((e as Error).message);
     } finally {

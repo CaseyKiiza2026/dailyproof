@@ -5,7 +5,7 @@ import { CalendarData, Commitment, validateBlock } from "@/lib/calendar";
 export async function getCalendar(): Promise<CalendarData> {
  const {db,user}=await requireUser();
  const [tasks,commitments,habits]=await Promise.all([getTasks(),db.from("commitments").select("*").eq("user_id",user.id).order("start_at"),db.from("habits").select("id,name,scheduled_days,scheduled_time,duration_minutes").eq("user_id",user.id)]);
- if(commitments.error||habits.error) throw new Error("Unable to load calendar.");
+ if(commitments.error||habits.error) throw new Error("Unable to load calendar.", { cause: { code: (commitments.error ?? habits.error)?.code } });
  return {tasks,commitments:commitments.data,habits:habits.data};
 }
 export async function saveCommitment(id: string|null,input: Pick<Commitment,"title"|"description"|"start_at"|"end_at">) {

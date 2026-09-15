@@ -28,7 +28,7 @@ export async function readAiTool(name: string, args: Record<string, unknown>) {
           .gte("log_date", start)
           .lte("log_date", today),
       ]);
-    if (hError || lError) throw new Error("Unable to load weekly statistics.");
+    if (hError || lError) throw new Error("Unable to load weekly statistics.", { cause: { code: (hError ?? lError)?.code } });
     const days = Array.from({ length: weekday }, (_, i) =>
       shiftDateKey(start, i),
     );

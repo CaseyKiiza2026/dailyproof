@@ -6,7 +6,7 @@ import { executeWorkActions } from "@/lib/work-service";
 export async function getTasks(): Promise<Task[]> {
   const { db, user } = await requireUser();
   const { data, error } = await db.from("tasks").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
-  if (error) throw new Error("Unable to load tasks.");
+  if (error) throw new Error("Unable to load tasks.", { cause: { code: error?.code } });
   return data as Task[];
 }
 export async function saveTask(id: string | null, input: TaskInput): Promise<Task> {
