@@ -10,6 +10,7 @@ import { useDashboardHabits } from "@/lib/hooks/use-dashboard-habits";
 import { HabitFormModal } from "@/components/dashboard/habit-form-modal";
 import { HabitRowMenu } from "@/components/dashboard/habit-row-menu";
 import { DeleteHabitDialog } from "@/components/dashboard/delete-habit-dialog";
+import { MobileHabitList } from "@/components/dashboard/mobile-habit-list";
 
 const statusClasses: Record<HabitStatus, string> = {
   complete: "border-proof-green/70 bg-proof-green shadow-[0_0_16px_rgba(37,216,111,.45),inset_0_1px_0_rgba(255,255,255,.35)]",
@@ -136,27 +137,28 @@ export function HabitGrid({ dashboard, stats }: HabitGridProps) {
   const gridTemplateColumns = `170px repeat(${daysInMonth}, 22px)`;
 
   return (
-    <section className="proof-panel overflow-hidden">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.07] px-4 py-4 sm:px-5">
+    <section className="proof-panel sm:overflow-hidden">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.07] px-4 py-3 sm:px-5 sm:py-4">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-base font-bold">Habit Grid</h2>
+            <h2 className="text-base font-bold"><span className="sm:hidden">Habits</span><span className="hidden sm:inline">Habit Grid</span></h2>
             <span className="hidden rounded-full bg-proof-green/10 px-2 py-0.5 text-[10px] font-bold text-proof-green sm:inline">{stats.completion}% completion</span>
             <span className="hidden items-center gap-1 rounded-full bg-white/[0.05] px-2 py-0.5 text-[10px] font-bold text-white/60 sm:inline-flex"><Flame size={11} className="text-proof-amber" />{stats.currentStreak}d streak</span>
             <span className="hidden items-center gap-1 rounded-full bg-white/[0.05] px-2 py-0.5 text-[10px] font-bold text-white/60 sm:inline-flex"><Trophy size={11} className="text-proof-violet" />Best {stats.bestStreak}d</span>
           </div>
-          <p className="mt-1 text-xs text-white/35">Tap a scheduled cell to set its status.</p>
+          <p className="mt-1 hidden text-xs text-white/35 sm:block">Tap a scheduled cell to set its status.</p>
         </div>
         <div className="flex gap-2">
           <button
             onClick={() => setModal({ mode: "create" })}
-            className="proof-pill proof-focus h-9 gap-1 px-3 text-xs font-semibold text-proof-green transition active:scale-[0.96]"
+            aria-label="Add habit"
+            className="proof-pill proof-focus h-11 w-11 gap-1 text-sm font-semibold text-proof-green transition active:scale-[0.96] sm:h-9 sm:w-auto sm:px-3 sm:text-xs"
           >
-            <Plus size={14} /> Add habit
+            <Plus size={18} className="sm:h-3.5 sm:w-3.5" /><span className="hidden sm:inline">Add habit</span>
           </button>
           <button
             onClick={dashboard.goToToday}
-            className="proof-pill proof-focus h-9 px-3 text-xs font-semibold transition active:scale-[0.96]"
+            className="proof-pill proof-focus h-11 px-3 text-sm font-semibold transition active:scale-[0.96] sm:h-9 sm:text-xs"
           >
             Today
           </button>
@@ -164,14 +166,14 @@ export function HabitGrid({ dashboard, stats }: HabitGridProps) {
             <button
               aria-label="Filter habits"
               onClick={() => setFilterOpen((value) => !value)}
-              className={`proof-pill proof-focus h-9 w-9 transition active:scale-[0.96] ${
+              className={`proof-pill proof-focus h-11 w-11 transition active:scale-[0.96] sm:h-9 sm:w-9 ${
                 activeCategories.size > 0 ? "border-proof-green/50 text-proof-green" : ""
               }`}
             >
               <Filter size={15} />
             </button>
             {filterOpen && (
-              <div className="absolute right-0 top-11 z-20 w-56 overflow-hidden rounded-xl border border-white/[0.09] bg-[#0d110f] p-2 shadow-proof-card">
+              <div className="absolute right-0 top-12 z-20 w-64 overflow-hidden rounded-xl border border-white/[0.09] bg-[#0d110f] p-2 shadow-proof-card sm:top-11 sm:w-56">
                 <p className="px-2 py-1 text-[10px] font-bold uppercase tracking-[.1em] text-white/35">Filter by category</p>
                 {presentCategories.length === 0 && <p className="px-2 py-2 text-xs text-white/40">No categories yet.</p>}
                 {presentCategories.map((category) => {
@@ -179,13 +181,13 @@ export function HabitGrid({ dashboard, stats }: HabitGridProps) {
                   return (
                     <label
                       key={category}
-                      className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-semibold text-white/75 transition hover:bg-white/[0.06] active:bg-white/[0.1]"
+                      className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 text-sm font-semibold text-white/75 transition hover:bg-white/[0.06] active:bg-white/[0.1] sm:min-h-0 sm:gap-2 sm:text-xs"
                     >
                       <input
                         type="checkbox"
                         checked={checked}
                         onChange={() => toggleCategory(category)}
-                        className="proof-focus h-3.5 w-3.5 accent-proof-green"
+                        className="proof-focus h-5 w-5 accent-proof-green sm:h-3.5 sm:w-3.5"
                       />
                       {category}
                     </label>
@@ -194,7 +196,7 @@ export function HabitGrid({ dashboard, stats }: HabitGridProps) {
                 {activeCategories.size > 0 && (
                   <button
                     onClick={() => setActiveCategories(new Set())}
-                    className="mt-1 w-full rounded-lg px-2 py-1.5 text-left text-xs font-semibold text-white/45 transition hover:bg-white/[0.06] hover:text-white/70"
+                    className="mt-1 min-h-11 w-full rounded-lg px-2 py-1.5 text-left text-sm font-semibold text-white/45 transition hover:bg-white/[0.06] hover:text-white/70 sm:min-h-0 sm:text-xs"
                   >
                     Clear filters
                   </button>
@@ -205,7 +207,11 @@ export function HabitGrid({ dashboard, stats }: HabitGridProps) {
         </div>
       </div>
 
-      <div className="overflow-x-auto">
+      <MobileHabitList dashboard={dashboard} habits={visibleHabits}
+        onEdit={(habit) => setModal({ mode: "edit", habit })}
+        onDelete={setDeleteTarget} onCreate={() => setModal({ mode: "create" })} />
+
+      <div className="hidden overflow-x-auto sm:block">
         <div style={{ minWidth: 170 + daysInMonth * 30 }}>
           {showEmptyState ? (
             <div className="flex flex-col items-center gap-4 px-6 py-14 text-center">
@@ -349,7 +355,7 @@ export function HabitGrid({ dashboard, stats }: HabitGridProps) {
       </div>
 
       {!showEmptyState && (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-white/[0.07] px-4 py-3 text-[10px] text-white/38 sm:px-5">
+        <div className="hidden flex-wrap items-center gap-x-4 gap-y-2 border-t border-white/[0.07] px-4 py-3 text-[10px] text-white/38 sm:flex sm:px-5">
           <span className="mr-1 inline-flex items-center gap-1.5 text-white/52"><Sparkles size={12} className="text-proof-green" /> Status</span>
           {(["complete", "missed", "rest", "vacation", "empty"] as HabitStatus[]).map((status) => {
             const StatusIcon = statusIcons[status];

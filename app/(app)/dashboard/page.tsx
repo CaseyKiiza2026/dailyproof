@@ -7,6 +7,7 @@ import { StatCard } from "@/components/ui/stat-card";
 import { HabitGrid } from "@/components/dashboard/habit-grid";
 import { useDashboardHabits } from "@/lib/hooks/use-dashboard-habits";
 import { useHabitStats } from "@/lib/hooks/use-habit-stats";
+import styles from "./dashboard.module.css";
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
@@ -65,7 +66,7 @@ function MonthMenu({
                   onSelect(year, month);
                   setOpen(false);
                 }}
-                className={`flex w-full items-center justify-between px-3 py-2 text-left text-xs font-semibold transition hover:bg-white/[0.06] active:bg-white/[0.1] ${
+                className={`flex min-h-11 w-full items-center justify-between px-3 py-2 text-left text-sm font-semibold transition hover:bg-white/[0.06] active:bg-white/[0.1] sm:min-h-0 sm:text-xs ${
                   active ? "text-proof-green" : "text-white/75"
                 }`}
               >
@@ -97,11 +98,11 @@ function DashboardContent() {
   ).padStart(2, "0")}`;
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-4">
+    <div className={`${styles.dashboard} space-y-4 pb-[env(safe-area-inset-bottom)] sm:space-y-6 sm:pb-0`}>
+      <header className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
         <Logo />
-        <div className="proof-pill border-proof-green/25 bg-proof-green/[0.05] px-4 py-2 text-xs font-bold text-proof-green">
-          <Trophy size={14} className="mr-2" />
+        <div className="proof-pill whitespace-nowrap border-proof-green/25 bg-proof-green/[0.05] px-3 py-2 text-xs font-bold text-proof-green sm:px-4">
+          <Trophy size={14} className="mr-2 hidden sm:block" />
           {stats.completion >= 50 ? "Winning the month" : "Keep pushing"}
         </div>
       </header>
@@ -126,7 +127,38 @@ function DashboardContent() {
         </label>
       </div>
 
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+      <section aria-label="Progress overview" className="space-y-3 sm:hidden">
+        <div className="grid grid-cols-2 gap-3">
+          <article className="rounded-[22px] border border-proof-green/25 bg-proof-green/[0.035] p-4">
+            <p className="text-sm font-semibold text-white/65">Completion</p>
+            <div className="mt-3 flex items-end justify-between gap-2">
+              <p className="text-[32px] font-black leading-none tracking-tight">{stats.completion}%</p>
+              <CheckCircle2 size={22} className="shrink-0 text-proof-green" />
+            </div>
+          </article>
+          <article className="rounded-[22px] border border-proof-green/25 bg-proof-green/[0.035] p-4">
+            <p className="text-sm font-semibold text-white/65">Current streak</p>
+            <div className="mt-3 flex items-end justify-between gap-2">
+              <p className="flex flex-wrap items-baseline gap-x-1.5"><span className="text-[32px] font-black leading-none tracking-tight">{stats.currentStreak}</span><span className="text-sm text-white/50">days</span></p>
+              <Flame size={22} className="shrink-0 text-proof-green" />
+            </div>
+          </article>
+        </div>
+        <dl className="grid grid-cols-3 divide-x divide-white/[0.08] rounded-2xl border border-white/[0.08] bg-white/[0.025] py-3">
+          {[
+            { label: "Best streak", value: stats.bestStreak, color: "text-proof-amber" },
+            { label: "Missed", value: stats.missed, color: "text-proof-red" },
+            { label: "Completed", value: stats.completed, color: "text-proof-green" }
+          ].map(({ label, value, color }) => (
+            <div key={label} className="min-w-0 px-2 text-center">
+              <dt className="text-[13px] font-medium text-white/55">{label}</dt>
+              <dd className="mt-1 flex flex-wrap items-baseline justify-center gap-x-1"><span className={`text-2xl font-bold leading-tight ${color}`}>{value}</span><span className="text-xs text-white/45">days</span></dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+
+      <section className="hidden grid-cols-2 gap-3 sm:grid sm:grid-cols-3 xl:grid-cols-5">
         <StatCard label="Completion" value={`${stats.completion}%`} icon={CheckCircle2} tone="green" />
         <StatCard label="Current streak" value={stats.currentStreak} suffix="days" icon={Flame} tone="green" />
         <StatCard label="Best streak" value={stats.bestStreak} suffix="days" icon={Trophy} tone="amber" />

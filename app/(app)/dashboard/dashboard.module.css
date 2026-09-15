@@ -1,0 +1,44 @@
+/* Dashboard-only phone ergonomics; shared dialogs and desktop stay unchanged. */
+@media (max-width: 639px) {
+  .dashboard [role="dialog"] {
+    max-height: calc(100dvh - 32px);
+    overflow-y: auto;
+  }
+
+  .dashboard div:has(> [role="dialog"]) {
+    z-index: 60;
+  }
+
+  .dashboard [role="dialog"] button {
+    min-height: 44px;
+    min-width: 44px;
+    font-size: 14px;
+  }
+
+  .dashboard [role="dialog"] input,
+  .dashboard [role="dialog"] select {
+    min-height: 44px;
+    font-size: 16px;
+  }
+
+  .dashboard [role="dialog"] div:has(> button[aria-pressed]) {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 8px;
+  }
+
+  .dashboard [role="dialog"] button[role="switch"] {
+    width: 64px;
+  }
+
+  .dashboard [role="dialog"] button[role="switch"] > span {
+    top: 7px;
+    left: 7px;
+    height: 28px;
+    width: 28px;
+  }
+
+  .dashboard [role="dialog"] button[role="switch"][aria-checked="true"] > span {
+    left: 27px;
+  }
+}
