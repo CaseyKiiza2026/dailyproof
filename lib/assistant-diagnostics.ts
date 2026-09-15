@@ -3,6 +3,18 @@ import { randomUUID } from "node:crypto";
 
 type Context = { correlationId: string; stage: string; failedStage?: string };
 const storage = new AsyncLocalStorage<Context>();
+export function logGeminiRetry(retryAttempt: number, geminiHttpStatus: number) {
+  console.info(
+    JSON.stringify({
+      event: "ASSISTANT_RETRY",
+      correlationId: storage.getStore()?.correlationId,
+      stage: "gemini_request",
+      functionName: "geminiJson",
+      retryAttempt,
+      geminiHttpStatus,
+    }),
+  );
+}
 export type AssistantFailure = {
   ok: false;
   error: string;
