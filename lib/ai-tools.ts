@@ -2,135 +2,52 @@ import "server-only";
 import { getCalendar } from "@/lib/actions/calendar";
 import { getReminders } from "@/lib/actions/reminders";
 import { requireUser } from "@/lib/server-user";
-import {
-  dateKeyInTimeZone,
-  shiftDateKey,
-  localDateTimeToUtc,
-} from "@/lib/timezone";
-import { freeSlots } from "@/lib/calendar";
-import { computeCompletion } from "@/lib/stats";
+import { dateKeyInTimeZone, shiftDateKey } from "@/lib/timezone";
+import { calendarFreeSlots } from "@/lib/work-schedule";
+import { activityContext, HabitContextLog } from "@/lib/ai-context";
 import { geminiJson } from "@/lib/gemini";
 export async function readAiTool(name: string, args: Record<string, unknown>) {
   const { db, user, timeZone } = await requireUser();
   const today = dateKeyInTimeZone(new Date(), timeZone);
   if (name === "get_reminders") return getReminders();
   if (name === "verify_proof") return verifyOwnedProof(String(args.proof_id));
-  if (name === "get_week_stats") {
-    const weekday = new Date(`${today}T12:00Z`).getUTCDay() || 7,
-      start = shiftDateKey(today, 1 - weekday);
-    const [{ data: habits, error: hError }, { data: logs, error: lError }] =
-      await Promise.all([
-        db.from("habits").select("id,scheduled_days").eq("user_id", user.id),
-        db
-          .from("habit_logs")
-          .select("habit_id,log_date,status")
-          .eq("user_id", user.id)
-          .gte("log_date", start)
-          .lte("log_date", today),
-      ]);
-    if (hError || lError) throw new Error("Unable to load weekly statistics.", { cause: { code: (hError ?? lError)?.code } });
-    const days = Array.from({ length: weekday }, (_, i) =>
-      shiftDateKey(start, i),
-    );
-    return {
-      start,
-      end: today,
-      loggedHabitCompletion: computeCompletion(
-        (habits ?? []).map((h) => ({
-          id: h.id,
-          name: "",
-          category: "",
-          icon: "",
-          subtitle: "",
-          isCore: false,
-          orderIndex: 0,
-          scheduledDays: h.scheduled_days,
-          logsByDate: Object.fromEntries(
-            (logs ?? [])
-              .filter((l) => l.habit_id === h.id)
-              .map((l) => [l.log_date, l.status]),
-          ),
-        })),
-        days,
-      ),
-      completedLogs: logs?.filter((l) => l.status === "complete").length,
-    };
-  }
   const calendar = await getCalendar();
+  if (name === "get_today" || name === "get_week_stats") {
+    const weekday = new Date(`${today}T12:00Z`).getUTCDay() || 7;
+    const start =
+      name === "get_today" ? today : shiftDateKey(today, 1 - weekday);
+    const { data: logs, error } = await db
+      .from("habit_logs")
+      .select("habit_id,log_date,status")
+      .eq("user_id", user.id)
+      .gte("log_date", start)
+      .lte("log_date", today);
+    if (error || !logs)
+      throw new Error("Unable to load habit completion context.", {
+        cause: { code: error?.code },
+      });
+    const context = activityContext(
+      calendar,
+      logs as HabitContextLog[],
+      today,
+      timeZone,
+    );
+    return name === "get_today" ? context.todayWork : context.week;
+  }
   if (name === "get_tasks") return calendar.tasks;
   if (name === "get_calendar") return calendar;
   if (name === "get_commitments") return calendar.commitments;
-  if (name === "get_today")
-    return {
-      today,
-      timeZone,
-      tasks: calendar.tasks.filter(
-        (t) =>
-          t.status !== "cancelled" &&
-          [t.due_at, t.scheduled_start].some(
-            (v) => v && dateKeyInTimeZone(new Date(v), timeZone) === today,
-          ),
-      ),
-      habits: calendar.habits.filter((h) =>
-        h.scheduled_days.includes(new Date(`${today}T12:00Z`).getUTCDay() || 7),
-      ),
-      commitments: calendar.commitments.filter(
-        (c) =>
-          dateKeyInTimeZone(new Date(c.start_at), timeZone) <= today &&
-          dateKeyInTimeZone(new Date(c.end_at), timeZone) >= today,
-      ),
-    };
   if (name === "find_free_slots") {
-    const start = String(args.start),
-      end = String(args.end),
-      minutes = Number(args.minutes);
-    const blocks = [
-      ...calendar.commitments.map((c) => ({
-        start: c.start_at,
-        end: c.end_at,
-      })),
-      ...calendar.tasks
-        .filter(
-          (t) =>
-            t.scheduled_start &&
-            t.status !== "cancelled" &&
-            t.id !== args.exclude_task_id,
-        )
-        .map((t) => ({ start: t.scheduled_start!, end: t.scheduled_end! })),
-    ];
-    // Validate range before expanding recurring habits.
-    freeSlots(start, end, minutes, []);
-    const first = dateKeyInTimeZone(new Date(start), timeZone),
-      last = dateKeyInTimeZone(new Date(end), timeZone);
-    for (
-      let day = shiftDateKey(first, -1);
-      day <= last;
-      day = shiftDateKey(day, 1)
-    )
-      for (const h of calendar.habits) {
-        if (
-          !h.scheduled_time ||
-          !h.scheduled_days.includes(new Date(`${day}T12:00Z`).getUTCDay() || 7)
-        )
-          continue;
-        try {
-          const at = localDateTimeToUtc(
-            `${day}T${h.scheduled_time.slice(0, 5)}`,
-            timeZone,
-          )!;
-          blocks.push({
-            start: at,
-            end: new Date(
-              Date.parse(at) + h.duration_minutes! * 60000,
-            ).toISOString(),
-          });
-        } catch {
-          throw new Error(
-            "A recurring habit falls in a daylight-saving transition. Review that day manually.",
-          );
-        }
-      }
-    return freeSlots(start, end, minutes, blocks);
+    return calendarFreeSlots(
+      calendar,
+      timeZone,
+      String(args.start),
+      String(args.end),
+      Number(args.minutes),
+      typeof args.exclude_task_id === "string"
+        ? args.exclude_task_id
+        : undefined,
+    );
   }
   throw new Error("Unsupported assistant read tool.");
 }

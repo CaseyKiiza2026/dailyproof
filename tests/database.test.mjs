@@ -30,7 +30,9 @@ const denied = (operation) => assert.rejects(operation, (error) => error.code ==
 before(async () => {
   await db.exec(fs.readFileSync("tests/fixtures/base-schema.sql", "utf8"));
   const migrations = fs.readdirSync("supabase/migrations").filter((f) => f.endsWith(".sql")).sort();
-  for (const file of migrations.filter((f) => !f.startsWith("20260914"))) {
+  // This fixture deliberately starts before the foundation repair. Later
+  // additive migrations require the V1 schema and belong to the full-chain tests.
+  for (const file of migrations.filter((f) => f < "20260914000000_foundation_repair.sql")) {
     await db.exec(fs.readFileSync(`supabase/migrations/${file}`, "utf8"));
   }
   await db.exec("grant all on all tables in schema public to authenticated; grant select on profiles to anon");
