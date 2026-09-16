@@ -1,12 +1,23 @@
 "use client";
 
 import { useUserClock } from "@/components/layout/user-clock";
+import { TasksProvider } from "@/lib/hooks/use-tasks";
 import { logoutBrowserPush } from "@/lib/push-browser";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Sparkles, Bell, CalendarDays, ListTodo, Grid2X2, LogOut, RadioTower, UserRound, UsersRound } from "lucide-react";
+import {
+  Sparkles,
+  Bell,
+  CalendarDays,
+  ListTodo,
+  Grid2X2,
+  LogOut,
+  RadioTower,
+  UserRound,
+  UsersRound,
+} from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { createClient } from "@/lib/supabase/client";
 import { useHabitsData } from "@/lib/hooks/use-habits-data";
@@ -22,37 +33,51 @@ const navigation = [
   { href: "/year", label: "Year", icon: CalendarDays },
   { href: "/feed", label: "Feed", icon: RadioTower },
   { href: "/friends", label: "Friends", icon: UsersRound },
-  { href: "/profile", label: "Profile", icon: UserRound }
+  { href: "/profile", label: "Profile", icon: UserRound },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState("");
   const [username, setUsername] = useState<string | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
-  const { habits, earliestLogDate, loading: habitsLoading, error: habitsError } = useHabitsData();
+  const {
+    habits,
+    earliestLogDate,
+    loading: habitsLoading,
+    error: habitsError,
+  } = useHabitsData();
 
   // Same shared calculation as Dashboard/Year/Feed — never a second one, so
   // the sidebar can't drift from what those pages show for this account.
-  const { todayDate: realNow } = useUserClock();
+  const { todayDate: realNow, userId } = useUserClock();
   const streakDateKeys = useMemo(() => {
     const start = earliestLogDate ? parseDateKey(earliestLogDate) : realNow;
     return dateKeyRange(start, realNow);
   }, [earliestLogDate, realNow]);
-  const currentStreak = useMemo(() => computeCurrentStreak(habits, streakDateKeys), [habits, streakDateKeys]);
+  const currentStreak = useMemo(
+    () => computeCurrentStreak(habits, streakDateKeys),
+    [habits, streakDateKeys],
+  );
 
   useEffect(() => {
     const supabase = createClient();
 
     async function loadProfile() {
       const {
-        data: { user }
+        data: { user },
       } = await supabase.auth.getUser();
       if (!user) {
         setLoadingProfile(false);
         return;
       }
-      const { data: profile } = await supabase.from("profiles").select("id, username").eq("id", user.id).single();
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("id, username")
+        .eq("id", user.id)
+        .single();
       setUsername(profile?.username ?? null);
       setLoadingProfile(false);
     }
@@ -61,11 +86,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   async function handleLogout() {
-    await logoutBrowserPush();
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push("/auth");
-    router.refresh();
+    if (loggingOut) return;
+    setLoggingOut(true);
+    setLogoutError("");
+    try {
+      await logoutBrowserPush();
+      const { error } = await createClient().auth.signOut();
+      if (error) throw error;
+      router.push("/auth");
+      router.refresh();
+    } catch {
+      setLogoutError("Unable to finish logging out. Please retry.");
+    } finally {
+      setLoggingOut(false);
+    }
   }
 
   const initials = username ? username.slice(0, 2).toUpperCase() : "";
@@ -92,7 +126,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="mt-auto proof-panel p-4">
           <div className="flex items-center gap-3">
             <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gradient-to-br from-proof-green/80 to-emerald-900 text-xs font-black text-black">
-              {loadingProfile ? <span className="h-3 w-3 animate-pulse rounded-full bg-black/30" /> : initials}
+              {loadingProfile ? (
+                <span className="h-3 w-3 animate-pulse rounded-full bg-black/30" />
+              ) : (
+                initials
+              )}
             </div>
             <div className="min-w-0 flex-1">
               {loadingProfile || habitsLoading ? (
@@ -102,12 +140,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </div>
               ) : (
                 <>
-                  <p className="truncate text-sm font-bold">{username ?? "Unknown"}</p>
-                  <p className="truncate text-xs text-white/35">{habitsError ? "Streak unavailable" : `${currentStreak} day streak`}</p>
+                  <p className="truncate text-sm font-bold">
+                    {username ?? "Unknown"}
+                  </p>
+                  <p className="truncate text-xs text-white/35">
+                    {habitsError
+                      ? "Streak unavailable"
+                      : `${currentStreak} day streak`}
+                  </p>
                 </>
               )}
             </div>
-            <button aria-label="Log out" onClick={handleLogout} className="proof-focus grid h-8 w-8 shrink-0 place-items-center rounded-lg text-white/35 hover:bg-white/[0.05] hover:text-white">
+            <button
+              aria-label={loggingOut ? "Logging out" : "Log out"}
+              disabled={loggingOut}
+              onClick={handleLogout}
+              className="proof-focus grid h-8 w-8 shrink-0 place-items-center rounded-lg text-white/35 hover:bg-white/[0.05] hover:text-white"
+            >
               <LogOut size={15} />
             </button>
           </div>
@@ -116,23 +165,64 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <main className="min-w-0 pb-28 lg:col-start-2 lg:pb-12">
         <div className="flex flex-wrap justify-end gap-2 px-4 pt-3 lg:hidden">
-          <Link href="/notifications" aria-label="Notifications" className="proof-pill proof-focus h-11 w-11"><Bell size={18}/></Link>
-          <Link href="/assistant" aria-label="Assistant" className="proof-pill proof-focus h-11 w-11"><Sparkles size={18}/></Link>
-          <button onClick={handleLogout} className="proof-pill proof-focus min-h-11 gap-2 px-4 text-xs"><LogOut size={16} /> Log out</button>
+          <Link
+            href="/notifications"
+            aria-label="Notifications"
+            className="proof-pill proof-focus h-11 w-11"
+          >
+            <Bell size={18} />
+          </Link>
+          <Link
+            href="/assistant"
+            aria-label="Assistant"
+            className="proof-pill proof-focus h-11 w-11"
+          >
+            <Sparkles size={18} />
+          </Link>
+          <button
+            disabled={loggingOut}
+            onClick={handleLogout}
+            className="proof-pill proof-focus min-h-11 gap-2 px-4 text-xs"
+          >
+            <LogOut size={16} /> {loggingOut ? "Logging out..." : "Log out"}
+          </button>
         </div>
-        <div className="mx-auto w-full max-w-[1180px] px-4 py-5 sm:px-6 lg:px-10 lg:py-9">{children}</div>
+        <div className="mx-auto w-full max-w-[1180px] px-4 py-5 sm:px-6 lg:px-10 lg:py-9">
+          {logoutError && <p role="alert">{logoutError}</p>}
+          {loggingOut && (
+            <p role="status" className="sr-only">
+              Logging out...
+            </p>
+          )}
+          <TasksProvider key={userId}>{children}</TasksProvider>
+        </div>
       </main>
 
       <nav className="fixed bottom-4 left-1/2 z-50 flex w-[calc(100%-24px)] max-w-[560px] -translate-x-1/2 items-center justify-around rounded-[28px] border border-white/[0.10] bg-[#090c0a]/90 px-3 py-2 shadow-[0_22px_90px_rgba(0,0,0,.65),inset_0_1px_0_rgba(255,255,255,.04)] backdrop-blur-xl lg:hidden">
-        {navigation.filter(({ href }) => ["/dashboard", "/calendar", "/todos", "/friends", "/profile"].includes(href)).map(({ href, label, icon: Icon }) => {
-          const active = pathname === href;
-          return (
-            <Link key={href} href={href} aria-current={active ? "page" : undefined} className={`proof-focus flex min-h-11 min-w-0 flex-1 flex-col items-center gap-1 py-1.5 text-[10px] font-semibold ${active ? "text-proof-green" : "text-white/35"}`}>
-              <Icon size={19} strokeWidth={active ? 2.4 : 1.8} />
-              {label}
-            </Link>
-          );
-        })}
+        {navigation
+          .filter(({ href }) =>
+            [
+              "/dashboard",
+              "/calendar",
+              "/todos",
+              "/friends",
+              "/profile",
+            ].includes(href),
+          )
+          .map(({ href, label, icon: Icon }) => {
+            const active = pathname === href;
+            return (
+              <Link
+                key={href}
+                href={href}
+                aria-current={active ? "page" : undefined}
+                className={`proof-focus flex min-h-11 min-w-0 flex-1 flex-col items-center gap-1 py-1.5 text-[10px] font-semibold ${active ? "text-proof-green" : "text-white/35"}`}
+              >
+                <Icon size={19} strokeWidth={active ? 2.4 : 1.8} />
+                {label}
+              </Link>
+            );
+          })}
       </nav>
     </div>
   );

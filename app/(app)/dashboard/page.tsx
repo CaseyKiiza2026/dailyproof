@@ -1,7 +1,14 @@
 "use client";
 
 import { Suspense, useEffect, useRef, useState } from "react";
-import { CalendarDays, CheckCircle2, ChevronDown, Flame, Trophy, XCircle } from "lucide-react";
+import {
+  CalendarDays,
+  CheckCircle2,
+  ChevronDown,
+  Flame,
+  Trophy,
+  XCircle,
+} from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { StatCard } from "@/components/ui/stat-card";
 import { HabitGrid } from "@/components/dashboard/habit-grid";
@@ -9,14 +16,24 @@ import { useDashboardHabits } from "@/lib/hooks/use-dashboard-habits";
 import { useHabitStats } from "@/lib/hooks/use-habit-stats";
 import styles from "./dashboard.module.css";
 import Link from "next/link";
-import {useUserClock} from "@/components/layout/user-clock";
-import {useTasks} from "@/lib/hooks/use-tasks";
-import {dailyProgress,isTaskOnDay} from "@/lib/daily-progress";
-import {ProofPanel} from "@/components/proofs/proof-panel";
+import { useUserClock } from "@/components/layout/user-clock";
+import { useTasks } from "@/lib/hooks/use-tasks";
+import { dailyProgress, isTaskOnDay } from "@/lib/daily-progress";
+import { ProofPanel } from "@/components/proofs/proof-panel";
 
 const MONTH_NAMES = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December"
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
 ];
 
 function MonthMenu({
@@ -24,7 +41,7 @@ function MonthMenu({
   viewMonth,
   realYear,
   realMonth,
-  onSelect
+  onSelect,
 }: {
   viewYear: number;
   viewMonth: number;
@@ -38,7 +55,8 @@ function MonthMenu({
   useEffect(() => {
     if (!open) return;
     function handleClick(event: MouseEvent) {
-      if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(event.target as Node))
+        setOpen(false);
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
@@ -57,7 +75,8 @@ function MonthMenu({
         onClick={() => setOpen((value) => !value)}
         className="proof-pill proof-focus h-11 min-w-[150px] justify-between px-4 text-sm font-bold transition active:scale-[0.97]"
       >
-        {MONTH_NAMES[viewMonth]} {viewYear} <ChevronDown size={15} className="text-white/35" />
+        {MONTH_NAMES[viewMonth]} {viewYear}{" "}
+        <ChevronDown size={15} className="text-white/35" />
       </button>
       {open && (
         <div className="absolute left-0 top-12 z-20 max-h-64 w-48 overflow-y-auto rounded-xl border border-white/[0.09] bg-[#0d110f] shadow-proof-card">
@@ -76,7 +95,9 @@ function MonthMenu({
                 }`}
               >
                 {MONTH_NAMES[month]} {year}
-                {year === realYear && month === realMonth && <span className="text-[9px] text-white/30">now</span>}
+                {year === realYear && month === realMonth && (
+                  <span className="text-[9px] text-white/30">now</span>
+                )}
               </button>
             );
           })}
@@ -96,24 +117,46 @@ export default function DashboardPage() {
 
 function DashboardContent() {
   const dashboard = useDashboardHabits();
-  const habitStats = useHabitStats(dashboard.habits, dashboard.monthlyDateKeys, dashboard.streakDateKeys);
-  const {today,timeZone}=useUserClock();const taskData=useTasks();
-  const progress=dailyProgress(dashboard.habits,taskData.tasks,today,timeZone);
-  const stats={...habitStats,...progress};
+  const habitStats = useHabitStats(
+    dashboard.habits,
+    dashboard.monthlyDateKeys,
+    dashboard.streakDateKeys,
+  );
+  const { today, timeZone } = useUserClock();
+  const taskData = useTasks();
+  const progress = dailyProgress(
+    dashboard.habits,
+    taskData.tasks,
+    today,
+    timeZone,
+  );
+  const stats = { ...habitStats, ...progress };
+  const habitsReady =
+    !dashboard.loading && (!dashboard.error || dashboard.habits.length > 0);
+  const progressReady = habitsReady && taskData.ready;
 
   const selectedIso = `${dashboard.viewYear}-${String(dashboard.viewMonth + 1).padStart(2, "0")}-${String(
-    dashboard.selectedDay
+    dashboard.selectedDay,
   ).padStart(2, "0")}`;
 
-  if (dashboard.error) return <p role="alert" className="proof-panel p-5 text-proof-red">{dashboard.error}</p>;
-
   return (
-    <div className={`${styles.dashboard} space-y-4 pb-[env(safe-area-inset-bottom)] sm:space-y-6 sm:pb-0`}>
+    <div
+      className={`${styles.dashboard} space-y-4 pb-[env(safe-area-inset-bottom)] sm:space-y-6 sm:pb-0`}
+    >
+      {dashboard.error && (
+        <p role="alert" className="text-proof-red">
+          {dashboard.error}
+        </p>
+      )}
       <header className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
         <Logo />
         <div className="proof-pill whitespace-nowrap border-proof-green/25 bg-proof-green/[0.05] px-3 py-2 text-xs font-bold text-proof-green sm:px-4">
           <Trophy size={14} className="mr-2 hidden sm:block" />
-          {stats.completion >= 50 ? "Making progress today" : "Keep pushing"}
+          {!progressReady
+            ? "Daily progress"
+            : stats.completion >= 50
+              ? "Making progress today"
+              : "Keep pushing"}
         </div>
       </header>
 
@@ -142,44 +185,151 @@ function DashboardContent() {
           <article className="rounded-[22px] border border-proof-green/25 bg-proof-green/[0.035] p-4">
             <p className="text-sm font-semibold text-white/65">Completion</p>
             <div className="mt-3 flex items-end justify-between gap-2">
-              <p className="text-[32px] font-black leading-none tracking-tight">{stats.completion}%</p>
+              <p className="text-[32px] font-black leading-none tracking-tight">
+                {progressReady ? `${stats.completion}%` : "\u2014"}
+              </p>
               <CheckCircle2 size={22} className="shrink-0 text-proof-green" />
             </div>
           </article>
           <article className="rounded-[22px] border border-proof-green/25 bg-proof-green/[0.035] p-4">
-            <p className="text-sm font-semibold text-white/65">Current streak</p>
+            <p className="text-sm font-semibold text-white/65">
+              Current streak
+            </p>
             <div className="mt-3 flex items-end justify-between gap-2">
-              <p className="flex flex-wrap items-baseline gap-x-1.5"><span className="text-[32px] font-black leading-none tracking-tight">{stats.currentStreak}</span><span className="text-sm text-white/50">days</span></p>
+              <p className="flex flex-wrap items-baseline gap-x-1.5">
+                <span className="text-[32px] font-black leading-none tracking-tight">
+                  {habitsReady ? stats.currentStreak : "\u2014"}
+                </span>
+                <span className="text-sm text-white/50">days</span>
+              </p>
               <Flame size={22} className="shrink-0 text-proof-green" />
             </div>
           </article>
         </div>
         <dl className="grid grid-cols-3 divide-x divide-white/[0.08] rounded-2xl border border-white/[0.08] bg-white/[0.025] py-3">
           {[
-            { label: "Best streak", value: stats.bestStreak, color: "text-proof-amber" },
+            {
+              label: "Best streak",
+              value: stats.bestStreak,
+              color: "text-proof-amber",
+            },
             { label: "Missed", value: stats.missed, color: "text-proof-red" },
-            { label: "Completed", value: stats.completed, color: "text-proof-green" }
+            {
+              label: "Completed",
+              value: stats.completed,
+              color: "text-proof-green",
+            },
           ].map(({ label, value, color }) => (
             <div key={label} className="min-w-0 px-2 text-center">
               <dt className="text-[13px] font-medium text-white/55">{label}</dt>
-              <dd className="mt-1 flex flex-wrap items-baseline justify-center gap-x-1"><span className={`text-2xl font-bold leading-tight ${color}`}>{value}</span>{label==="Best streak"&&<span className="text-xs text-white/45">days</span>}</dd>
+              <dd className="mt-1 flex flex-wrap items-baseline justify-center gap-x-1">
+                <span className={`text-2xl font-bold leading-tight ${color}`}>
+                  {(label === "Best streak" ? habitsReady : progressReady)
+                    ? value
+                    : "\u2014"}
+                </span>
+                {label === "Best streak" && (
+                  <span className="text-xs text-white/45">days</span>
+                )}
+              </dd>
             </div>
           ))}
         </dl>
       </section>
 
       <section className="hidden grid-cols-2 gap-3 sm:grid sm:grid-cols-3 xl:grid-cols-5">
-        <StatCard label="Completion" value={`${stats.completion}%`} icon={CheckCircle2} tone="green" />
-        <StatCard label="Current streak" value={stats.currentStreak} suffix="days" icon={Flame} tone="green" />
-        <StatCard label="Best streak" value={stats.bestStreak} suffix="days" icon={Trophy} tone="amber" />
-        <StatCard label="Missed today" value={stats.missed} icon={XCircle} tone="red" />
-        <StatCard label="Completed today" value={stats.completed} icon={CheckCircle2} tone="green" />
+        <StatCard
+          label="Completion"
+          value={`${progressReady ? `${stats.completion}%` : "\u2014"}`}
+          icon={CheckCircle2}
+          tone="green"
+        />
+        <StatCard
+          label="Current streak"
+          value={habitsReady ? stats.currentStreak : "\u2014"}
+          suffix="days"
+          icon={Flame}
+          tone="green"
+        />
+        <StatCard
+          label="Best streak"
+          value={habitsReady ? stats.bestStreak : "\u2014"}
+          suffix="days"
+          icon={Trophy}
+          tone="amber"
+        />
+        <StatCard
+          label="Missed today"
+          value={progressReady ? stats.missed : "\u2014"}
+          icon={XCircle}
+          tone="red"
+        />
+        <StatCard
+          label="Completed today"
+          value={progressReady ? stats.completed : "\u2014"}
+          icon={CheckCircle2}
+          tone="green"
+        />
       </section>
 
-      <p className="text-sm text-white/50">Today: {progress.completed}/{progress.total} activities complete. Rest and vacation remain neutral.</p>
-      {taskData.error&&<p role="alert" className="text-sm text-proof-red">{taskData.error}</p>}
-      <HabitGrid dashboard={dashboard} stats={stats} />
-      <section className="space-y-3"><div className="flex items-center justify-between"><h2 className="text-lg font-bold">Today’s tasks</h2><Link href="/todos" className="proof-action">All tasks</Link></div>{taskData.tasks.filter(t=>isTaskOnDay(t,today,timeZone)).map(task=><article key={task.id} className="proof-panel space-y-3 p-4"><p className="break-words font-bold">{task.title}</p><button className="proof-action" onClick={()=>void taskData.complete(task)}>{task.status==="completed"?"Reopen":"Complete"}</button>{task.status==="completed"&&<ProofPanel target={{taskId:task.id}}/>}</article>)}</section>
+      <p className="text-sm text-white/50">
+        {progressReady
+          ? `Today: ${progress.completed}/${progress.total} activities complete.`
+          : "Today's totals are not yet available."}{" "}
+        Rest and vacation remain neutral.
+      </p>
+      {taskData.error && (
+        <p role="alert" className="text-sm text-proof-red">
+          {taskData.error}
+        </p>
+      )}
+      {!habitsReady && dashboard.error ? (
+        <section
+          className="proof-panel min-h-64 p-4"
+          aria-label="Habits unavailable"
+        >
+          Habits unavailable.
+        </section>
+      ) : (
+        <HabitGrid
+          dashboard={dashboard}
+          stats={stats}
+          statsReady={progressReady}
+        />
+      )}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold">Today’s tasks</h2>
+          <Link href="/todos" className="proof-action">
+            All tasks
+          </Link>
+        </div>
+        {!taskData.ready && (
+          <div
+            aria-label="Tasks not yet available"
+            className="proof-panel min-h-32 p-4"
+          >
+            <div className="h-5 w-2/3 rounded bg-white/10" />
+          </div>
+        )}
+        {taskData.tasks
+          .filter((t) => isTaskOnDay(t, today, timeZone))
+          .map((task) => (
+            <article key={task.id} className="proof-panel space-y-3 p-4">
+              <p className="break-words font-bold">{task.title}</p>
+              <button
+                disabled={taskData.busy}
+                className="proof-action"
+                onClick={() => void taskData.complete(task)}
+              >
+                {task.status === "completed" ? "Reopen" : "Complete"}
+              </button>
+              {task.status === "completed" && (
+                <ProofPanel target={{ taskId: task.id }} />
+              )}
+            </article>
+          ))}
+      </section>
     </div>
   );
 }

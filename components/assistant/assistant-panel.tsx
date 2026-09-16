@@ -13,16 +13,20 @@ export function AssistantPanel() {
     [result, setResult] = useState<AssistantReply | null>(null),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
-    [applied, setApplied] = useState(false);
+    [applied, setApplied] = useState(false),
+    [current, setCurrent] = useState(true);
   async function ask() {
+    if (busy) return;
     setBusy(true);
     setError("");
-    setResult(null);
+    setCurrent(false);
     setApplied(false);
     try {
       const response = await askAssistant(question);
-      if (response.ok) setResult(response);
-      else setError(response.error);
+      if (response.ok) {
+        setResult(response);
+        setCurrent(true);
+      } else setError(response.error);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -80,7 +84,14 @@ export function AssistantPanel() {
         </p>
       )}
       {result && (
-        <section className="proof-panel space-y-4 p-4">
+        <section aria-busy={busy} className="proof-panel space-y-4 p-4">
+          <p role="status" className="min-h-5 text-sm text-white/55">
+            {!current
+              ? busy
+                ? "Working on your new request. Previous response shown below."
+                : "Previous response. Submit again to get a new plan."
+              : ""}
+          </p>
           <p className="whitespace-pre-wrap break-words text-sm leading-6">
             {result.reply}
           </p>
@@ -119,7 +130,7 @@ export function AssistantPanel() {
           {result.planId && !applied && (
             <div className="flex flex-wrap gap-2">
               <button
-                disabled={busy}
+                disabled={busy || !current}
                 className="proof-action"
                 onClick={async () => {
                   setBusy(true);
@@ -136,7 +147,11 @@ export function AssistantPanel() {
               >
                 Apply reviewed changes
               </button>
-              <button className="proof-action" onClick={() => setResult(null)}>
+              <button
+                disabled={busy}
+                className="proof-action"
+                onClick={() => setResult(null)}
+              >
                 Discard
               </button>
             </div>

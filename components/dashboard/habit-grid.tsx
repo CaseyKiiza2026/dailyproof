@@ -47,6 +47,7 @@ type ModalState = { mode: "create" } | { mode: "edit"; habit: Habit };
 interface HabitGridProps {
   dashboard: ReturnType<typeof useDashboardHabits>;
   stats: HabitStats;
+  statsReady?: boolean;
 }
 
 const mobileViewKey = "dailyproof.mobileHabitView";
@@ -60,7 +61,7 @@ function subscribeMobileView(callback: () => void) {
 }
 const defaultMobileView = () => "grid" as const;
 
-export function HabitGrid({ dashboard, stats }: HabitGridProps) {
+export function HabitGrid({ dashboard, stats, statsReady = true }: HabitGridProps) {
   const savedView = useSyncExternalStore(subscribeMobileView, readMobileView, defaultMobileView);
   const [viewOverride, setViewOverride] = useState<"grid" | "list" | null>(null);
   const mobileView = viewOverride ?? savedView;
@@ -162,9 +163,9 @@ export function HabitGrid({ dashboard, stats }: HabitGridProps) {
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-base font-bold"><span className="sm:hidden">Habits</span><span className="hidden sm:inline">Habit Grid</span></h2>
-            <span className="hidden rounded-full bg-proof-green/10 px-2 py-0.5 text-[10px] font-bold text-proof-green sm:inline">{stats.completion}% completion</span>
-            <span className="hidden items-center gap-1 rounded-full bg-white/[0.05] px-2 py-0.5 text-[10px] font-bold text-white/60 sm:inline-flex"><Flame size={11} className="text-proof-amber" />{stats.currentStreak}d streak</span>
-            <span className="hidden items-center gap-1 rounded-full bg-white/[0.05] px-2 py-0.5 text-[10px] font-bold text-white/60 sm:inline-flex"><Trophy size={11} className="text-proof-violet" />Best {stats.bestStreak}d</span>
+            <span className="hidden rounded-full bg-proof-green/10 px-2 py-0.5 text-[10px] font-bold text-proof-green sm:inline">{statsReady ? `${stats.completion}% completion` : "Progress unavailable"}</span>
+            <span className="hidden items-center gap-1 rounded-full bg-white/[0.05] px-2 py-0.5 text-[10px] font-bold text-white/60 sm:inline-flex"><Flame size={11} className="text-proof-amber" />{statsReady ? `${stats.currentStreak}d streak` : "\u2014"}</span>
+            <span className="hidden items-center gap-1 rounded-full bg-white/[0.05] px-2 py-0.5 text-[10px] font-bold text-white/60 sm:inline-flex"><Trophy size={11} className="text-proof-violet" />{statsReady ? `Best ${stats.bestStreak}d` : "\u2014"}</span>
           </div>
           <p className="mt-1 hidden text-xs text-white/35 sm:block">Tap a scheduled cell to set its status.</p>
         </div>

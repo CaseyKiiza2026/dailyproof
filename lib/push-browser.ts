@@ -1,21 +1,163 @@
 "use client";
 import { getPushIdentity } from "@/lib/actions/reminders";
-interface OneSignalSdk { init(options:{appId:string;serviceWorkerPath:string}):Promise<void>;login(id:string):Promise<void>;logout():Promise<void>;Notifications:{requestPermission():Promise<void>;permission:boolean};User:{PushSubscription:{optIn():Promise<void>;optOut():Promise<void>}}; }
-declare global { interface Window { OneSignalDeferred?: ((sdk:OneSignalSdk)=>void)[]; } }
-let sdkPromise:Promise<OneSignalSdk>|null=null;
-async function prepareBrowserPush(){
- const identity=await getPushIdentity();
- if(!sdkPromise)sdkPromise=new Promise((resolve,reject)=>{
-  const timer=setTimeout(()=>{sdkPromise=null;reject(new Error("Push SDK did not load. Please retry."))},15000);
-  window.OneSignalDeferred=window.OneSignalDeferred||[];
-  window.OneSignalDeferred.push(async sdk=>{try{await sdk.init({appId:identity.appId,serviceWorkerPath:"OneSignalSDKWorker.js"});clearTimeout(timer);resolve(sdk)}catch{clearTimeout(timer);sdkPromise=null;reject(new Error("Push is unavailable on this browser. On iPhone, install DailyProof on your Home Screen first."))}});
-  const script=document.createElement("script");script.src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";script.async=true;script.onerror=()=>{clearTimeout(timer);sdkPromise=null;reject(new Error("Unable to load push service."))};document.head.appendChild(script);
- });
- const sdk=await sdkPromise;return {sdk,identity};
+interface OneSignalSdk {
+  init(options: { appId: string; serviceWorkerPath: string }): Promise<void>;
+  login(id: string): Promise<void>;
+  logout(): Promise<void>;
+  Notifications: { requestPermission(): Promise<void>; permission: boolean };
+  User: {
+    PushSubscription: { optIn(): Promise<void>; optOut(): Promise<void> };
+  };
 }
-export async function enableBrowserPush(){
- const {sdk,identity}=await prepareBrowserPush();await sdk.login(identity.alias);await sdk.Notifications.requestPermission();
- if(!sdk.Notifications.permission)throw new Error("Notification permission was not granted. You can enable it in browser settings.");
- await sdk.User.PushSubscription.optIn();
+declare global {
+  interface Window {
+    OneSignalDeferred?: ((sdk: OneSignalSdk) => void)[];
+  }
 }
-export async function logoutBrowserPush(){try{const {sdk}=await prepareBrowserPush();await sdk.User.PushSubscription.optOut();await sdk.logout()}catch{/* Auth logout must remain available. */}}
+const usedKey = "dailyproof.pushUsed";
+let sdkPromise: Promise<OneSignalSdk> | null = null;
+let enablePromise: Promise<void> | null = null;
+let logoutPromise: Promise<void> | null = null;
+let identityOperation: Promise<void> | null = null;
+let generation = 0;
+let used = false;
+
+// A deadline bounds the caller, not the underlying SDK initialization. A late
+// script/init completion is reused on retry instead of injecting a second copy.
+function deadline<T>(promise: Promise<T>): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error("Push service did not respond. Please retry.")),
+      15000,
+    );
+    promise.then(resolve, reject).finally(() => clearTimeout(timer));
+  });
+}
+function loadSdk(appId: string) {
+  if (sdkPromise) return sdkPromise;
+  let rejectLoad: (error: Error) => void;
+  const script = document.createElement("script");
+  script.src = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
+  script.async = true;
+  const promise = new Promise<OneSignalSdk>((resolve, reject) => {
+    rejectLoad = reject;
+    const callback = async (sdk: OneSignalSdk) => {
+      script.onerror = null;
+      try {
+        await sdk.init({ appId, serviceWorkerPath: "OneSignalSDKWorker.js" });
+        resolve(sdk);
+      } catch {
+        reject(
+          new Error(
+            "Push is unavailable on this browser. Reload to retry initialization; on iPhone, use the Home Screen app.",
+          ),
+        );
+      }
+    };
+    window.OneSignalDeferred = window.OneSignalDeferred || [];
+    window.OneSignalDeferred.push(callback);
+    script.onerror = () => {
+      const queue = window.OneSignalDeferred;
+      if (Array.isArray(queue)) {
+        const index = queue.indexOf(callback);
+        if (index >= 0) queue.splice(index, 1);
+      }
+      script.remove();
+      sdkPromise = null;
+      rejectLoad(new Error("Unable to load push service. Please retry."));
+    };
+    document.head.appendChild(script);
+  });
+  sdkPromise = promise;
+  return promise;
+}
+function rememberUsed(value: boolean) {
+  used = value;
+  try {
+    if (value) localStorage.setItem(usedKey, "true");
+    else localStorage.removeItem(usedKey);
+  } catch {
+    /* In-memory state still protects this session. */
+  }
+}
+function mayHaveIdentity() {
+  if (used || identityOperation) return true;
+  try {
+    if (localStorage.getItem(usedKey)) return true;
+  } catch {
+    return true;
+  }
+  // Includes subscriptions created before the marker was introduced.
+  return (
+    typeof Notification !== "undefined" && Notification.permission === "granted"
+  );
+}
+async function changeIdentity(action: () => Promise<void>) {
+  const operation = action();
+  identityOperation = operation;
+  try {
+    await operation;
+  } finally {
+    if (identityOperation === operation) identityOperation = null;
+  }
+}
+export function enableBrowserPush(): Promise<void> {
+  if (logoutPromise) return Promise.reject(new Error("Logout is in progress."));
+  if (enablePromise) return deadline(enablePromise);
+  const request = generation;
+  const check = () => {
+    if (request !== generation)
+      throw new Error("Push setup cancelled by logout.");
+  };
+  const promise = (async () => {
+    const identity = await getPushIdentity();
+    check();
+    const sdk = await loadSdk(identity.appId);
+    check();
+    rememberUsed(true);
+    await changeIdentity(() => sdk.login(identity.alias));
+    check();
+    await sdk.Notifications.requestPermission();
+    check();
+    if (!sdk.Notifications.permission)
+      throw new Error(
+        "Notification permission was not granted. You can enable it in browser settings.",
+      );
+    await changeIdentity(() => sdk.User.PushSubscription.optIn());
+  })();
+  enablePromise = promise;
+  void promise
+    .finally(() => {
+      if (enablePromise === promise) enablePromise = null;
+    })
+    .catch(() => {});
+  return deadline(promise);
+}
+export function logoutBrowserPush(): Promise<void> {
+  if (logoutPromise) return logoutPromise;
+  generation++;
+  enablePromise = null;
+  if (!mayHaveIdentity()) return Promise.resolve();
+  const promise = (async () => {
+    // Wait only for identity writes, never an unanswered permission prompt.
+    // Late setup checks the generation before any subsequent identity write.
+    if (identityOperation) await deadline(identityOperation.catch(() => {}));
+    const sdk = await deadline(
+      sdkPromise ??
+        getPushIdentity().then((identity) => loadSdk(identity.appId)),
+    );
+    const outcomes = await deadline(
+      Promise.allSettled([sdk.User.PushSubscription.optOut(), sdk.logout()]),
+    );
+    if (outcomes.some((result) => result.status === "rejected"))
+      throw new Error("Unable to clear push identity. Please retry logout.");
+    rememberUsed(false);
+  })();
+  logoutPromise = promise;
+  void promise
+    .finally(() => {
+      if (logoutPromise === promise) logoutPromise = null;
+    })
+    .catch(() => {});
+  return promise;
+}

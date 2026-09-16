@@ -78,7 +78,8 @@ export function MobileHabitList({ presentation = "list", dashboard, habits, onEd
             <span className="text-xs">{new Date(viewYear, viewMonth, day).toLocaleDateString("en", { weekday: "short" })}</span><span className="font-bold">{day}</span>
           </button>)}
         </div>
-        {!loading && habits.map((habit) => <div key={habit.id} className="grid w-max items-center border-b border-white/[0.07]" style={columns}>
+        {loading && habits.length === 0 && <div role="status" aria-label="Loading habits">{Array.from({length: 5}, (_, row) => <div key={row} className="grid min-h-[88px] w-max items-center border-b border-white/[0.07]" style={columns}><div className="sticky left-0 z-10 h-full space-y-3 bg-[#0a0d0b] px-3 py-5"><div className="h-4 w-28 rounded bg-white/10"/><div className="h-3 w-20 rounded bg-white/5"/></div>{days.map(day => <span key={day} className="mx-auto h-6 w-6 rounded-md bg-white/5"/>)}</div>)}</div>}
+        {habits.map((habit) => <div key={habit.id} className="grid w-max items-center border-b border-white/[0.07]" style={columns}>
           <div className="sticky left-0 z-10 self-stretch border-r border-white/[0.07] bg-[#0a0d0b] px-3 py-3">
             <button onClick={() => onEdit(habit)} aria-label={`Edit ${habit.name}`} className="proof-focus min-h-11 w-full text-left">
               <span className="block break-words text-sm font-bold leading-5 text-white/90 [overflow-wrap:anywhere]">{habit.name}{habit.isCore && <Star size={11} fill="currentColor" aria-label="Core habit" className="ml-1 inline text-proof-amber" />}</span>
@@ -105,7 +106,7 @@ export function MobileHabitList({ presentation = "list", dashboard, habits, onEd
           })}
         </div>)}
       </div>
-      {loading && <p role="status" className="p-4 text-sm text-white/55">Loading habits…</p>}
+
       {!loading && habits.length === 0 && <p className="p-4 text-sm text-white/55">No habits match the selected filters.</p>}
       <div className="flex flex-wrap gap-x-3 gap-y-2 px-4 py-3 text-xs text-white/55">
         {Object.entries(statuses).map(([value, { label, icon: Icon }]) => <span key={value} className="inline-flex items-center gap-1"><Icon size={14} />{label}</span>)}

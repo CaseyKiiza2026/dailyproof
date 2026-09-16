@@ -7,6 +7,7 @@ import { calendarDays } from "@/lib/timezone";
 import { parseDateKey } from "@/lib/dates";
 
 interface Clock {
+  userId: string | null;
   now: Date;
   todayDate: Date;
   today: string;
@@ -72,6 +73,7 @@ export function UserClockProvider({ children }: { children: React.ReactNode }) {
   const days = calendarDays(now, timeZone);
   const todayDate = useMemo(() => parseDateKey(days.today), [days.today]);
   const value: Clock = {
+    userId: preferences?.userId ?? null,
     now, todayDate, ...days, timeZone,
     shareDetailedActivity: preferences?.shareDetailedActivity ?? false,
     setShareDetailedActivity: (enabled) => setPreferences((current) => current ? { ...current, shareDetailedActivity: enabled } : current)
