@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { isAuthorizationError, requireRead } from "@/lib/read-errors";
 import { createClient } from "@/lib/supabase/client";
 import { upsertHabitLog } from "@/lib/actions/habit-logs";
 import { HabitInput, seedStarterHabits } from "@/lib/actions/habits";
@@ -17,8 +18,10 @@ function habitIcon(name: string) {
 export function useHabitsData() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [pendingCells, setPendingCells] = useState<Set<string>>(new Set());
   const [seeding, setSeeding] = useState(false);
+  const changedIds = useRef(new Set<string>());
 
   useEffect(() => {
     let cancelled = false;
@@ -28,9 +31,10 @@ export function useHabitsData() {
       const supabase = createClient();
 
       const {
-        data: { user }
+        data: { user }, error: authError
       } = await supabase.auth.getUser();
 
+      if (authError && authError.name !== "AuthSessionMissingError") throw authError;
       if (!user) {
         if (!cancelled) {
           setHabits([]);
@@ -39,19 +43,21 @@ export function useHabitsData() {
         return;
       }
 
-      const { data: habitRows } = await supabase
+      const { data: habitRows, error: habitsError } = await supabase
         .from("habits")
         .select("id, name, category, order_index, is_core, scheduled_days")
         .eq("user_id", user.id)
         .order("order_index", { ascending: true });
 
+      requireRead(habitRows, habitsError);
       const habitIds = (habitRows ?? []).map((h) => h.id);
 
-      const { data: logRows } =
+      const { data: logRows, error: logsError } =
         habitIds.length > 0
           ? await supabase.from("habit_logs").select("habit_id, log_date, status").in("habit_id", habitIds)
-          : { data: [] };
+          : { data: [], error: null };
 
+      requireRead(logRows, logsError);
       const merged: Habit[] = (habitRows ?? []).map((row) => {
         const logsByDate: Record<string, HabitStatus> = {};
         for (const log of logRows ?? []) {
@@ -72,12 +78,20 @@ export function useHabitsData() {
       });
 
       if (!cancelled) {
-        setHabits(merged);
+        // Initial reads may overlap creation from an already-open form. Keep
+        // changes made locally since this read began, including deletions.
+        setHabits(current => [...merged.filter(h => !changedIds.current.has(h.id)), ...current.filter(h => changedIds.current.has(h.id))]);
         setLoading(false);
+        setError(null);
       }
     }
 
-    load();
+    void load().catch(cause => {
+      if (cancelled) return;
+      if (isAuthorizationError(cause)) { setHabits([]);   }
+      setError("Unable to load habits. Please try again.");
+      setLoading(false);
+    });
     return () => {
       cancelled = true;
     };
@@ -90,6 +104,7 @@ export function useHabitsData() {
 
       const habit = habits.find((h) => h.id === habitId);
       if (!habit) return;
+      changedIds.current.add(habitId);
       const previousStatus = habit.logsByDate[dateKey] ?? "empty";
 
       setPendingCells((current) => new Set(current).add(key));
@@ -128,6 +143,7 @@ export function useHabitsData() {
   );
 
   function handleHabitCreated(id: string, orderIndex: number, input: HabitInput) {
+    changedIds.current.add(id);
     setHabits((current) => [
       ...current,
       {
@@ -145,6 +161,7 @@ export function useHabitsData() {
   }
 
   function handleHabitUpdated(id: string, input: HabitInput) {
+    changedIds.current.add(id);
     setHabits((current) =>
       current.map((h) =>
         h.id === id
@@ -163,6 +180,7 @@ export function useHabitsData() {
   }
 
   function handleHabitDeleted(id: string) {
+    changedIds.current.add(id);
     setHabits((current) => current.filter((h) => h.id !== id));
   }
 
@@ -171,6 +189,7 @@ export function useHabitsData() {
     const result = await seedStarterHabits();
     setSeeding(false);
     if (!result.success) return;
+    for (const row of result.data) changedIds.current.add(row.id);
 
     setHabits(
       result.data.map((row) => ({
@@ -199,6 +218,7 @@ export function useHabitsData() {
   return {
     habits,
     loading,
+    error,
     pendingCells,
     seeding,
     earliestLogDate,

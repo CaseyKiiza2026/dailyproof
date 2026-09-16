@@ -26,9 +26,9 @@ export default function FriendsPage() {
   const visibleOutgoing = friends.outgoingPending.filter((f) => f.otherUser.username.toLowerCase().includes(query));
 
   const hasNothingAtAll =
-    !friends.loading && friends.acceptedFriends.length === 0 && friends.incomingPending.length === 0 && friends.outgoingPending.length === 0;
+    !friends.error && !friends.loading && friends.acceptedFriends.length === 0 && friends.incomingPending.length === 0 && friends.outgoingPending.length === 0;
 
-  const circleIsEmpty = visibleAccepted.length === 0 && visibleOutgoing.length === 0;
+  const circleIsEmpty = !friends.error && visibleAccepted.length === 0 && visibleOutgoing.length === 0;
 
   async function handleRespond(friendshipId: string, accept: boolean) {
     setRespondingId(friendshipId);
@@ -51,6 +51,8 @@ export default function FriendsPage() {
           Add
         </button>
       </header>
+
+      {friends.error&&<p role="alert" className="text-proof-red">{friends.error} <button className="proof-action" onClick={friends.reload}>Retry</button></p>}
 
       <label className="proof-panel proof-focus flex items-center gap-3 px-4 py-3">
         <Search size={17} className="text-white/30" />

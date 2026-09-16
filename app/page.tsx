@@ -23,7 +23,7 @@ const MONTH_NAMES = [
 ];
 
 export default function HomePage() {
-  const { habits, earliestLogDate } = useHabitsData();
+  const { habits, earliestLogDate, error } = useHabitsData();
   const { todayDate: realNow } = useUserClock();
   const year = realNow.getFullYear();
   const month = realNow.getMonth();
@@ -55,6 +55,7 @@ export default function HomePage() {
         <nav className="flex items-center justify-between"><Logo /><Link href="/auth" className="proof-pill px-4 py-2 text-sm font-bold">Login</Link></nav>
         <section className="grid items-center gap-12 py-20 lg:grid-cols-[1fr_.9fr] lg:py-28">
           <div><p className="proof-kicker text-proof-green">GitHub-style accountability</p><h1 className="mt-5 max-w-2xl text-5xl font-black leading-[.96] tracking-[-0.065em] sm:text-7xl">Your consistency should leave evidence.</h1><p className="mt-6 max-w-xl text-base leading-7 text-white/42">DailyProof turns habits into a visible record—monthly grids, yearly heatmaps, and lightweight friend accountability without the social-media noise.</p><div className="mt-8 flex flex-wrap gap-3"><Link href="/dashboard" className="inline-flex h-12 items-center gap-2 rounded-2xl bg-proof-green px-5 text-sm font-black text-black shadow-proof-button">View the demo<ArrowRight size={17} /></Link><Link href="/auth" className="proof-pill h-12 px-5 text-sm font-bold">Create your proof</Link></div></div>
+          {error ? <p role="alert" className="proof-panel p-5 text-proof-red">{error}</p> : (
           <div className="proof-panel relative overflow-hidden p-5 shadow-[0_35px_120px_rgba(0,0,0,.7)]">
             <div className="absolute -right-20 -top-20 h-52 w-52 rounded-full bg-proof-green/10 blur-3xl" />
             <div className="relative flex items-center justify-between">
@@ -73,6 +74,7 @@ export default function HomePage() {
               ))}
             </div>
           </div>
+          )}
         </section>
         <section className="grid gap-4 pb-20 sm:grid-cols-3">{features.map(({icon: Icon,title,copy})=><article key={title} className="proof-panel p-5"><Icon className="text-proof-green" /><h2 className="mt-5 font-black">{title}</h2><p className="mt-2 text-sm leading-6 text-white/35">{copy}</p></article>)}</section>
       </div>

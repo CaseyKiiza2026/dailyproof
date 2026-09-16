@@ -105,6 +105,8 @@ function DashboardContent() {
     dashboard.selectedDay
   ).padStart(2, "0")}`;
 
+  if (dashboard.error) return <p role="alert" className="proof-panel p-5 text-proof-red">{dashboard.error}</p>;
+
   return (
     <div className={`${styles.dashboard} space-y-4 pb-[env(safe-area-inset-bottom)] sm:space-y-6 sm:pb-0`}>
       <header className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">

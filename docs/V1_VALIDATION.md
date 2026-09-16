@@ -1,5 +1,7 @@
 # DailyProof V1 validation and release checklist
 
+Historical snapshot. The active tracker is [V1_RELEASE_BACKLOG.md](V1_RELEASE_BACKLOG.md); current deployment instructions are in [P0_PRODUCTION_VERIFICATION.md](P0_PRODUCTION_VERIFICATION.md). References below to Vercel cron, locally missing configuration, or unapplied migrations describe the September 15 audit, not current hosted state. The intended scheduler is now Supabase Cron; no `vercel.json` is present.
+
 Date: September 15, 2026. Requirements compared against `docs/DAILYPROOF_V1_SPEC.md`, including its current-state overrides. Work continued through all phases under the user's explicit instruction to complete them.
 
 ## Implementation status

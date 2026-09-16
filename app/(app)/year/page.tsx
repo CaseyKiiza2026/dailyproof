@@ -12,7 +12,7 @@ import { parseDateKey, dateKeyRange, monthDateKeys } from "@/lib/dates";
 import { HabitFormModal } from "@/components/dashboard/habit-form-modal";
 
 export default function YearPage() {
-  const { habits, earliestLogDate, handleHabitCreated } = useHabitsData();
+  const { habits, earliestLogDate, handleHabitCreated, error } = useHabitsData();
   const [addHabitOpen, setAddHabitOpen] = useState(false);
   const { todayDate: realNow } = useUserClock();
   const year = realNow.getFullYear();
@@ -38,6 +38,8 @@ export default function YearPage() {
   // it inherits schedule-awareness (a day with nothing scheduled isn't "tracked")
   // instead of drifting from the single source of truth.
   const daysTracked = useMemo(() => computeDaysTracked(habits, yearDateKeys), [habits, yearDateKeys]);
+
+  if (error) return <p role="alert" className="proof-panel p-5 text-proof-red">{error}</p>;
 
   return (
     <div className="space-y-8">

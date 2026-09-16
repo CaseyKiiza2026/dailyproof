@@ -30,7 +30,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [username, setUsername] = useState<string | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
-  const { habits, earliestLogDate, loading: habitsLoading } = useHabitsData();
+  const { habits, earliestLogDate, loading: habitsLoading, error: habitsError } = useHabitsData();
 
   // Same shared calculation as Dashboard/Year/Feed — never a second one, so
   // the sidebar can't drift from what those pages show for this account.
@@ -103,7 +103,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               ) : (
                 <>
                   <p className="truncate text-sm font-bold">{username ?? "Unknown"}</p>
-                  <p className="truncate text-xs text-white/35">{currentStreak} day streak</p>
+                  <p className="truncate text-xs text-white/35">{habitsError ? "Streak unavailable" : `${currentStreak} day streak`}</p>
                 </>
               )}
             </div>
