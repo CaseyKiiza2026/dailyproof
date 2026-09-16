@@ -38,6 +38,7 @@ A names-only inspection on September 15, 2026 found `NEXT_PUBLIC_SUPABASE_URL` a
 | `ONESIGNAL_REST_API_KEY` | Same page → App API Key | Both | **Yes** |
 | `GEMINI_API_KEY` | Google AI Studio → API keys | Both | **Yes** |
 | `GEMINI_MODEL` | Available Gemini model ID supporting images and structured JSON, from AI Studio/model docs | Both | Server configuration; not a secret |
+| `GEMINI_FALLBACK_MODEL` | Optional distinct model ID supporting images and structured JSON, from the same Gemini project's available models | Both | Server configuration; not a secret |
 | `CRON_SECRET` | Generate at least 32 random bytes locally; save directly into your secret manager/environment | Vercel; also local for worker testing | **Yes** |
 | `APP_URL` | Your canonical HTTPS deployment origin, without trailing slash | Both; local origin for local testing | No; used in push links |
 
@@ -82,6 +83,8 @@ OneSignal web does not support its mobile identity-verification flow. This integ
 ## Gemini
 
 Set `GEMINI_API_KEY` and `GEMINI_MODEL` server-side. Select an available image/structured-JSON capable model and configure provider quota/billing. No potentially retired model is hardcoded. The app limits each account to 20 AI requests per hour.
+
+Optionally set `GEMINI_FALLBACK_MODEL` to a different available model ID. Each Gemini call shares a 25-second budget across both models, retries, and response transfer; with fallback configured, the primary gets at most 12.5 seconds. Each model makes at most three attempts for transient HTTP 429/500/502/503/504 failures. Exhausted transient failures or a primary provider timeout activate fallback. Other errors, including normal 4xx responses and invalid JSON, do not switch models. Both models receive the same image and structured-JSON request. Diagnostics contain model IDs and attempt metadata, never prompts or provider bodies. Set the optional variable in Vercel Production and redeploy to enable it there.
 
 The assistant explains that relevant private work data goes to Gemini. Proof assessment sends the selected proof plus its associated activity. External proof links are not fetched. Manual controls remain available if Gemini fails. Live responses, model availability, and billing have not been tested without credentials.
 

@@ -3,15 +3,35 @@ import { randomUUID } from "node:crypto";
 
 type Context = { correlationId: string; stage: string; failedStage?: string };
 const storage = new AsyncLocalStorage<Context>();
-export function logGeminiRetry(retryAttempt: number, geminiHttpStatus: number) {
+export function geminiCorrelationId(): string {
+  return storage.getStore()?.correlationId ?? randomUUID();
+}
+export function logGeminiEvent(
+  event: "GEMINI_ATTEMPT" | "ASSISTANT_RETRY" | "GEMINI_FALLBACK",
+  details: {
+    correlationId: string;
+    role: "primary" | "fallback";
+    model: string;
+    attempt: number;
+    httpStatus: number | null;
+    fallbackActivated: boolean;
+    status: "success" | "failure" | "retry" | "activated";
+    errorName?: "TimeoutError";
+  },
+) {
   console.info(
     JSON.stringify({
-      event: "ASSISTANT_RETRY",
-      correlationId: storage.getStore()?.correlationId,
+      event,
+      correlationId: details.correlationId,
       stage: "gemini_request",
       functionName: "geminiJson",
-      retryAttempt,
-      geminiHttpStatus,
+      role: details.role,
+      model: details.model,
+      attempt: details.attempt,
+      geminiHttpStatus: details.httpStatus,
+      fallbackActivated: details.fallbackActivated,
+      status: details.status,
+      errorName: details.errorName,
     }),
   );
 }
