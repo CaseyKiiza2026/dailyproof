@@ -4,6 +4,8 @@ interface DeliveryRow {
   id: string;
   user_id: string;
   type: string;
+  title: string;
+  body: string | null;
   attempts: number;
 }
 export async function deliverNotifications() {
@@ -50,12 +52,14 @@ export async function deliverNotifications() {
                 app_id: process.env.ONESIGNAL_APP_ID,
                 include_aliases: { external_id: [settings.push_alias] },
                 target_channel: "push",
-                headings: { en: "DailyProof" },
+                headings: { en: row.title?.trim() ? row.title : "DailyProof" },
                 contents: {
                   en:
                     row.type === "nudge"
                       ? "A friend sent you a nudge."
-                      : "You have a DailyProof notification.",
+                      : row.body?.trim()
+                        ? row.body
+                        : "You have a DailyProof notification.",
                 },
                 url: `${process.env.APP_URL}/notifications`,
                 idempotency_key: row.id,

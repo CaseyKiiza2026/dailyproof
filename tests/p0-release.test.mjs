@@ -158,6 +158,8 @@ test("R-05: failed delivery is retained for retry with a stable idempotency key 
               id: "notification-id",
               user_id: "user-id",
               type: "scheduled_reminder",
+              title: "DailyProof",
+              body: null,
               attempts: attempt,
             },
           ],
@@ -218,3 +220,115 @@ test("R-05: failed delivery is retained for retry with a stable idempotency key 
   assert.equal(payloads[0].idempotency_key, payloads[1].idempotency_key);
   assert.equal(payloads[0].contents.en, "You have a DailyProof notification.");
 });
+
+for (const [label, row, heading, content] of [
+  [
+    "scheduled reminder title and body are preserved",
+    { title: "Study ML at 7 PM", body: "  Review chapter 3.  " },
+    "Study ML at 7 PM",
+    "  Review chapter 3.  ",
+  ],
+  [
+    "null body falls back",
+    { body: null },
+    "Study ML",
+    "You have a DailyProof notification.",
+  ],
+  [
+    "empty body falls back",
+    { body: "" },
+    "Study ML",
+    "You have a DailyProof notification.",
+  ],
+  [
+    "whitespace body falls back",
+    { body: " \n " },
+    "Study ML",
+    "You have a DailyProof notification.",
+  ],
+  [
+    "nudge retains intended message",
+    { type: "nudge", title: "DailyProof", body: "Different database message" },
+    "DailyProof",
+    "A friend sent you a nudge.",
+  ],
+  [
+    "blank title and body retain generic fallback",
+    { title: " ", body: "" },
+    "DailyProof",
+    "You have a DailyProof notification.",
+  ],
+  [
+    "missing content safely falls back",
+    { title: undefined, body: undefined },
+    "DailyProof",
+    "You have a DailyProof notification.",
+  ],
+]) {
+  test(`R-05: push ${label}`, async () => {
+    const payloads = [];
+    const db = {
+      async rpc(name, args) {
+        if (name === "enqueue_due_notifications") return { error: null };
+        if (name === "claim_push_notifications")
+          return {
+            data: [
+              {
+                id: "notification-id",
+                user_id: "user-id",
+                type: "scheduled_reminder",
+                title: "Study ML",
+                body: "Review chapter 3.",
+                attempts: 1,
+                ...row,
+              },
+            ],
+            error: null,
+          };
+        assert.equal(name, "finish_push_notification");
+        assert.equal(args.p_status, "sent");
+        return { error: null };
+      },
+      from() {
+        const query = {
+          select: () => query,
+          eq: () => query,
+          maybeSingle: async () => ({
+            data: {
+              enabled: true,
+              push_alias: "opaque-alias",
+              nudges: true,
+              friend_activity: true,
+            },
+            error: null,
+          }),
+        };
+        return query;
+      },
+    };
+    const worker = load(
+      "lib/push.ts",
+      {
+        "server-only": {},
+        "@/lib/supabase/admin": { createAdminClient: () => db },
+      },
+      {
+        process: {
+          env: {
+            ONESIGNAL_APP_ID: "synthetic-app",
+            ONESIGNAL_REST_API_KEY: "synthetic-key",
+            APP_URL: "https://example.test",
+          },
+        },
+        fetch: async (_url, options) => {
+          payloads.push(JSON.parse(options.body));
+          return Response.json({ id: "delivery" });
+        },
+      },
+    );
+    await worker.deliverNotifications();
+    assert.equal(payloads.length, 1);
+    assert.equal(payloads[0].headings.en, heading);
+    assert.equal(payloads[0].contents.en, content);
+  });
+}
