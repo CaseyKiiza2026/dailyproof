@@ -29,6 +29,7 @@ export function AddFriendModal({ friendships, onClose, onAdd }: AddFriendModalPr
   const [sendingTo, setSendingTo] = useState<string | null>(null);
   const [sentTo, setSentTo] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const requestId = useRef(0);
 
   const trimmedQuery = query.trim();
@@ -39,14 +40,16 @@ export function AddFriendModal({ friendships, onClose, onAdd }: AddFriendModalPr
     if (queryTooShort) return;
 
     const id = ++requestId.current;
+    let cancelled = false;
     const timeout = setTimeout(async () => {
-      const result = await searchProfilesByUsername(trimmedQuery);
-      if (requestId.current !== id) return;
+      const result = await searchProfilesByUsername(trimmedQuery).catch(() => ({success: false as const, error: "Unable to search users. Please try again."}));
+      if (cancelled || requestId.current !== id) return;
       setResolvedQuery(trimmedQuery);
-      if (result.success) setResults(result.data);
+      setSearchError(result.success ? null : "Unable to search users. Please try again.");
+      setResults(result.success ? result.data : []);
     }, 350);
 
-    return () => clearTimeout(timeout);
+    return () => { clearTimeout(timeout); cancelled = true; };
   }, [trimmedQuery, queryTooShort]);
 
   async function handleAdd(username: string) {
@@ -68,7 +71,7 @@ export function AddFriendModal({ friendships, onClose, onAdd }: AddFriendModalPr
         <input
           autoFocus
           value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={(event) => { setResolvedQuery(null); setQuery(event.target.value); }}
           placeholder="Search by username"
           className="w-full bg-transparent text-sm text-white outline-none placeholder:text-white/25"
         />
@@ -78,10 +81,11 @@ export function AddFriendModal({ friendships, onClose, onAdd }: AddFriendModalPr
 
       <div className="mt-3 max-h-64 space-y-1.5 overflow-y-auto">
         {!queryTooShort && searching && <p className="px-1 py-2 text-xs text-white/35">Searching…</p>}
-        {!queryTooShort && !searching && results.length === 0 && (
+        {!queryTooShort && !searching && searchError && <p role="alert" className="text-xs text-proof-red">{searchError}</p>}
+        {!queryTooShort && !searching && !searchError && results.length === 0 && (
           <p className="px-1 py-2 text-xs text-white/35">No one found with that username.</p>
         )}
-        {!queryTooShort && results.map((profile) => {
+        {!queryTooShort && !searching && !searchError && results.map((profile) => {
           const relation = relationTo(friendships, profile.id);
           const justSent = sentTo.has(profile.username);
           return (

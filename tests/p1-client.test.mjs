@@ -34,6 +34,7 @@ const entry = `
 import React,{useState} from 'react';import{createRoot}from'react-dom/client';
 import{AppShell}from'./components/layout/app-shell';
 import{NotificationCenter}from'./components/notifications/notification-center';
+import{CalendarProvider}from'./lib/hooks/use-calendar-data';
 import{CalendarBoard}from'./components/calendar/calendar-board';
 import{TaskBoard}from'./components/tasks/task-board';
 import{ProofPanel}from'./components/proofs/proof-panel';
@@ -43,7 +44,8 @@ import Dashboard from './app/(app)/dashboard/page';
 import{useTasks,TasksProvider}from'./lib/hooks/use-tasks';
 function Probe(){const data=useTasks();window.current=data;return <pre>{JSON.stringify(data)}</pre>}
 function Tasks(){const[board,setBoard]=useState(false);return <><button onClick={()=>setBoard(v=>!v)}>Switch task view</button>{board?<TaskBoard/>:<Probe/>}</>}
-function App(){const[owner,setOwner]=useState('one');window.changeOwner=setOwner;const mode=new URLSearchParams(location.search).get('mode');return mode==='shell'?<AppShell><p>Page content</p></AppShell>:mode==='notifications'?<NotificationCenter/>:mode==='calendar'?<CalendarBoard/>:mode==='proof'?<ProofPanel target={{taskId:owner}}/>:mode==='friends'?<><FriendHistory userId={owner}/>{window.secondFriend&&<FriendHistory userId="two"/>}</>:mode==='assistant'?<AssistantPanel/>:<TasksProvider key={owner}>{mode==='dashboard'?<Dashboard/>:mode==='board'?<TaskBoard/>:<Tasks/>}</TasksProvider>}
+function CalendarNavigation(){const[visible,setVisible]=useState(true);return <CalendarProvider><button onClick={()=>setVisible(v=>!v)}>Toggle calendar route</button>{visible?<CalendarBoard/>:<p>Another route</p>}</CalendarProvider>}
+function App(){const[owner,setOwner]=useState('one');window.changeOwner=setOwner;const mode=new URLSearchParams(location.search).get('mode');return mode==='shell'?<AppShell><p>Page content</p></AppShell>:mode==='notifications'?<NotificationCenter/>:mode==='calendar-nav'?<CalendarNavigation/>:mode==='calendar'?<CalendarBoard/>:mode==='proof'?<ProofPanel target={{taskId:owner}}/>:mode==='friends'?<><FriendHistory userId={owner}/>{window.secondFriend&&<FriendHistory userId="two"/>}</>:mode==='assistant'?<AssistantPanel/>:<TasksProvider key={owner}>{mode==='dashboard'?<Dashboard/>:mode==='board'?<TaskBoard/>:<Tasks/>}</TasksProvider>}
 const root=createRoot(document.getElementById('root'));window.unmount=()=>root.unmount();root.render(<App/>);
 `;
 let browser, server, origin;
@@ -742,5 +744,58 @@ test("VS-06/15: successful edits keep existing task order while revalidating", a
   assert.deepEqual(
     await p.evaluate(() => window.current.tasks.map((t) => t.id)),
     ["first", "task"],
+  );
+});
+
+test("VS-07 carryover: first load has no authoritative empty grid; repeat navigation retains known events", async (t) => {
+  const p = await pageFor(t, "calendar-nav", { initialHolds: ["calendar"] });
+  await expect(p.locator('.proof-calendar [class*="fc-"]')).toHaveCount(0);
+  await expect(
+    p.getByText("Loading calendar...", { exact: true }),
+  ).toBeVisible();
+  const data = {
+    tasks: [
+      {
+        ...task,
+        scheduled_start: "2026-09-16T09:00Z",
+        scheduled_end: "2026-09-16T10:00Z",
+      },
+    ],
+    habits: [],
+    commitments: [],
+  };
+  await p.evaluate((data) => window.transport.release("calendar", data), data);
+  await expect(
+    p.locator(".proof-calendar").getByText("Study", { exact: true }),
+  ).toBeVisible();
+  await p.getByRole("button", { name: "Toggle calendar route" }).click();
+  await p.getByRole("button", { name: "Toggle calendar route" }).click();
+  await expect(
+    p.locator(".proof-calendar").getByText("Study", { exact: true }),
+  ).toBeVisible();
+  await expect(p.getByText("Loading calendar...", { exact: true })).toHaveCount(
+    0,
+  );
+  await p.evaluate(() => window.transport.release("calendar", null, "Offline"));
+  await expect(
+    p.locator(".proof-calendar").getByText("Study", { exact: true }),
+  ).toBeVisible();
+  await p.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await expect(
+    p.locator(".proof-calendar").getByText("Study", { exact: true }),
+  ).toBeVisible();
+  await p.evaluate(() =>
+    window.transport.release("calendar", {
+      tasks: [],
+      habits: [],
+      commitments: [],
+    }),
+  );
+  await expect(
+    p.locator(".proof-calendar").getByText("Study", { exact: true }),
+  ).toHaveCount(0);
+  await expect(p.locator('.proof-calendar [class*="fc-"]').first()).toBeVisible();
+  await expect(p.getByText("Loading calendar...", { exact: true })).toHaveCount(
+    0,
   );
 });

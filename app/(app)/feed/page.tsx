@@ -27,9 +27,9 @@ export default function FeedPage() {
   const feed = useFeedData();
   const { todayDate: realNow, now, today: todayKey } = useUserClock();
   const minute = Math.floor(now.getTime() / 60000);
-  const { summaries, loading: summariesLoading, error: summariesError } = useDailySummaries(feed.events, minute);
+  const { summaries, loading: summariesLoading, error: summariesError } = useDailySummaries(feed.events, minute, feed.ready);
   const friends = useFriendsData();
-  const { habits, earliestLogDate, error: habitsError } = useHabitsData();
+  const { habits, earliestLogDate, error: habitsError, ready: habitsReady } = useHabitsData();
 
   const monthlyDateKeys = useMemo(
     () => monthDateKeys(realNow.getFullYear(), realNow.getMonth(), realNow.getDate()),
@@ -53,7 +53,7 @@ export default function FeedPage() {
   const { entries: leaderboard, loading: leaderboardLoading, error: leaderboardError } = useLeaderboard(
     friends.userId,
     "you", // never rendered — the page always labels its own entry "You"
-    habitsError ? null : stats.currentStreak,
+    habitsReady ? stats.currentStreak : null,
     friends.acceptedFriends,
     feed.events
   );
@@ -87,17 +87,17 @@ export default function FeedPage() {
         <div className="grid grid-cols-[1fr_1.6fr_1fr] items-end gap-4">
           <div>
             <p className="text-xs text-white/35">Your streak</p>
-            <p className="mt-1 text-3xl font-black">{habitsError ? <span className="text-xs">Unavailable</span> : stats.currentStreak}</p>
+            <p className="mt-1 text-3xl font-black">{habitsReady ? stats.currentStreak : <span className="text-xs">{habitsError ? "Unavailable" : "Loading..."}</span>}</p>
             <p className="text-xs text-white/30">days</p>
           </div>
           <div className="flex h-16 items-end justify-center gap-2">
-            {!habitsError && sparkline.map((height, index) => (
+            {habitsReady && sparkline.map((height, index) => (
               <span key={index} style={{ height }} className="w-3 rounded-full bg-gradient-to-t from-emerald-900 to-proof-green" />
             ))}
           </div>
           <div className="text-right">
             <p className="text-xs text-white/35">Best</p>
-            <p className="mt-1 text-3xl font-black">{habitsError ? <span className="text-xs">Unavailable</span> : stats.bestStreak}</p>
+            <p className="mt-1 text-3xl font-black">{habitsReady ? stats.bestStreak : <span className="text-xs">{habitsError ? "Unavailable" : "Loading..."}</span>}</p>
             <p className="text-xs text-white/30">days</p>
           </div>
         </div>
@@ -121,8 +121,8 @@ export default function FeedPage() {
         {feed.error&&<p role="alert" className="text-sm text-proof-red">{feed.error}</p>}
         {friends.error&&<p role="alert" className="text-sm text-proof-red">{friends.error}</p>}
         {summariesError && <p role="alert" className="text-sm text-proof-red">{summariesError}</p>}
-        {loading ? (
-          <p className="px-1 py-6 text-center text-sm text-white/35">Loading feed…</p>
+        {(loading || friends.loading) && visibleTimeline.length === 0 && !feed.error && !summariesError ? (
+          <p className="min-h-[240px] px-1 py-6 text-center text-sm text-white/35">Loading feed…</p>
         ) : visibleTimeline.length === 0 && (feed.error || summariesError || friends.error) ? null : visibleTimeline.length === 0 ? (
           <p className="proof-panel px-5 py-10 text-center text-sm text-white/35">
             Nothing here yet. {friends.acceptedFriends.length === 0 ? "Add a friend to start seeing real check-ins." : "Log a habit to get things moving."}
@@ -144,8 +144,8 @@ export default function FeedPage() {
           <span className="proof-pill px-3 py-1.5 text-[10px] text-white/50">Current streak</span>
         </div>
         {leaderboardError&&<p role="alert" className="mt-3 text-sm text-proof-red">{leaderboardError}</p>}
-        {leaderboardLoading ? (
-          <p className="mt-5 text-xs text-white/35">Loading…</p>
+        {leaderboardLoading && leaderboard.length === 0 ? (
+          <p className="mt-5 min-h-[120px] text-xs text-white/35">Loading…</p>
         ) : (
           <div className="mt-5 space-y-4">
             {leaderboard.map((entry, index) => (

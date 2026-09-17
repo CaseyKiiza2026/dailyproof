@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Bell, ChevronRight, CalendarDays, RadioTower, ShieldCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { PrivacySettings } from "@/components/profile/privacy-settings";
@@ -15,13 +16,16 @@ export default async function ProfilePage() {
     data: { user }
   } = await supabase.auth.getUser();
 
-  let username: string | null = null;
-  if (user) {
-    const { data: profile } = await supabase.from("profiles").select("id, username").eq("id", user.id).single();
-    username = profile?.username ?? null;
-  }
-  const { data: summary } = user ? await supabase.rpc("get_friend_day_summary", { p_target_user_id: user.id }) : { data: null };
-  const { count: friendCount } = user ? await supabase.from("friendships").select("id", {count:"exact",head:true}).eq("status","accepted").or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`) : {count:null};
+  if (!user) redirect("/auth");
+
+  const [profileResult, summaryResult, friendsResult] = await Promise.all([
+    supabase.from("profiles").select("id, username").eq("id", user.id).single(),
+    supabase.rpc("get_friend_day_summary", { p_target_user_id: user.id }),
+    supabase.from("friendships").select("id", {count:"exact",head:true}).eq("status","accepted").or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
+  ]);
+  const username = profileResult.data?.username ?? null;
+  const summary = summaryResult.data;
+  const friendCount = friendsResult.count;
   const initials = username ? username.slice(0, 2).toUpperCase() : "";
 
   return (

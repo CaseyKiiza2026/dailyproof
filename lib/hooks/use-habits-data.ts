@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { createContext, createElement, useContext, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { isAuthorizationError, requireRead } from "@/lib/read-errors";
 import { createClient } from "@/lib/supabase/client";
 import { upsertHabitLog } from "@/lib/actions/habit-logs";
@@ -15,7 +15,12 @@ function habitIcon(name: string) {
 // single data source shared by the Dashboard and the Year page, so a streak or
 // completion figure computed from it can never mean something different on one
 // page than the other.
-export function useHabitsData() {
+function useHabitState(enabled: boolean) {
+  const [ready, setReady] = useState(false);
+  const [version, setVersion] = useState(0);
+  const pendingRead = useRef(false);
+  const pendingWrites = useRef(new Set<string>());
+  const reload = useCallback(() => { if (!pendingRead.current && pendingWrites.current.size === 0) setVersion(v => v + 1); }, []);
   const [habits, setHabits] = useState<Habit[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -24,7 +29,10 @@ export function useHabitsData() {
   const changedIds = useRef(new Set<string>());
 
   useEffect(() => {
+    if (!enabled || pendingWrites.current.size > 0) return;
     let cancelled = false;
+    pendingRead.current = true;
+    changedIds.current.clear();
 
     async function load() {
       setLoading(true);
@@ -38,6 +46,7 @@ export function useHabitsData() {
       if (!user) {
         if (!cancelled) {
           setHabits([]);
+          setReady(true);
           setLoading(false);
         }
         return;
@@ -83,27 +92,33 @@ export function useHabitsData() {
         setHabits(current => [...merged.filter(h => !changedIds.current.has(h.id)), ...current.filter(h => changedIds.current.has(h.id))]);
         setLoading(false);
         setError(null);
+        setReady(true);
       }
     }
 
     void load().catch(cause => {
       if (cancelled) return;
-      if (isAuthorizationError(cause)) { setHabits([]);   }
+      if (isAuthorizationError(cause)) { setHabits([]); setReady(false); }
       setError("Unable to load habits. Please try again.");
       setLoading(false);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    }).finally(() => { if (!cancelled) pendingRead.current = false; });
+    return () => { cancelled = true; pendingRead.current = false; };
+  }, [enabled, version]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    window.addEventListener("focus", reload);
+    return () => window.removeEventListener("focus", reload);
+  }, [enabled, reload]);
 
   const updateCell = useCallback(
     async (habitId: string, dateKey: string, nextStatus: HabitStatus) => {
       const key = `${habitId}:${dateKey}`;
-      if (pendingCells.has(key)) return;
+      if (pendingWrites.current.has(key)) return;
 
       const habit = habits.find((h) => h.id === habitId);
       if (!habit) return;
+      pendingWrites.current.add(key);
       changedIds.current.add(habitId);
       const previousStatus = habit.logsByDate[dateKey] ?? "empty";
 
@@ -118,7 +133,7 @@ export function useHabitsData() {
         })
       );
 
-      const result = await upsertHabitLog(habitId, dateKey, nextStatus);
+      const result = await upsertHabitLog(habitId, dateKey, nextStatus).catch(() => ({success: false, error: "Unable to save habit log."}));
 
       if (!result.success) {
         console.error(`Failed to save habit log (habit ${habitId}, ${dateKey}, status ${nextStatus}):`, result.error);
@@ -133,13 +148,14 @@ export function useHabitsData() {
         );
       }
 
+      pendingWrites.current.delete(key);
       setPendingCells((current) => {
         const next = new Set(current);
         next.delete(key);
         return next;
       });
     },
-    [habits, pendingCells]
+    [habits]
   );
 
   function handleHabitCreated(id: string, orderIndex: number, input: HabitInput) {
@@ -186,7 +202,7 @@ export function useHabitsData() {
 
   async function handleSeedStarterHabits() {
     setSeeding(true);
-    const result = await seedStarterHabits();
+    const result = await seedStarterHabits().catch(() => ({success: false as const, error: "Unable to create starter habits."}));
     setSeeding(false);
     if (!result.success) return;
     for (const row of result.data) changedIds.current.add(row.id);
@@ -217,7 +233,9 @@ export function useHabitsData() {
 
   return {
     habits,
-    loading,
+    loading: loading && !ready,
+    ready,
+    reload,
     error,
     pendingCells,
     seeding,
@@ -228,4 +246,15 @@ export function useHabitsData() {
     handleHabitDeleted,
     handleSeedStarterHabits
   };
+}
+
+const HabitsContext = createContext<ReturnType<typeof useHabitState> | null>(null);
+export function HabitsProvider({children}: {children: ReactNode}) {
+ const state = useHabitState(true);
+ return createElement(HabitsContext.Provider, {value: state}, children);
+}
+export function useHabitsData() {
+ const shared = useContext(HabitsContext);
+ const local = useHabitState(shared === null);
+ return shared ?? local;
 }

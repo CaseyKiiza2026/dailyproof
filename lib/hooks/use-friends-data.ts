@@ -10,6 +10,7 @@ import { Friendship } from "@/lib/types";
 export function useFriendsData() {
   const [userId, setUserId] = useState<string | null>(null);
   const [friendships, setFriendships] = useState<Friendship[]>([]);
+  const [ready, setReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
@@ -34,7 +35,7 @@ export function useFriendsData() {
       if (!user) {
         if (currentRequest()) {
           setUserId(null);
-          setFriendships([]);
+          setFriendships([]); setReady(false);
           setLoading(false);
         }
         return;
@@ -81,13 +82,13 @@ export function useFriendsData() {
         setUserId(user.id);
         setFriendships(merged);
         setLoading(false);
-        setError(null);
+        setError(null); setReady(true);
       }
     }
 
     void load().catch(cause => {
       if (!currentRequest()) return;
-      if (isAuthorizationError(cause)) { setFriendships([]); setUserId(null);  }
+      if (isAuthorizationError(cause)) { setFriendships([]); setReady(false); setUserId(null);  }
       setError("Unable to load friendships. Please try again.");
       setLoading(false);
     });
@@ -133,6 +134,7 @@ export function useFriendsData() {
   return {
     userId,
     loading,
+    ready,
     error,
     friendships,
     acceptedFriends,

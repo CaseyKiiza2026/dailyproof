@@ -55,6 +55,7 @@ export function DailySummaryCard({ summary, now }: { summary: DailySummary; now:
     const next = !expanded;
     setExpanded(next);
     if (next) activity.load(summary.userId, summary.todayKey);
+    else activity.close();
   }
 
   return (
@@ -119,12 +120,12 @@ export function DailySummaryCard({ summary, now }: { summary: DailySummary; now:
       </div>
 
       {expanded && (
-        <div className="mt-3 space-y-2.5 border-t border-white/[0.06] pt-3">
-          {activity.loading && <p className="text-center text-[11px] text-white/35">Loading last 7 days…</p>}
+        <div className="mt-3 min-h-[600px] space-y-2.5 border-t border-white/[0.06] pt-3">
+          {activity.loading && <div role="status" className="space-y-2.5"><span className="sr-only">Loading last 7 days…</span>{Array.from({length:7}, (_,i) => <div key={i} aria-hidden="true" className="h-[76px] rounded-xl border border-white/[0.06] bg-white/[0.02]" />)}</div>}
           {activity.error && <p role="alert" className="text-xs text-proof-red">{activity.error}</p>}
           {!activity.loading &&
             activity.days?.map((day) => (
-              <div key={day.logDate} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+              <div key={day.logDate} className="min-h-[76px] rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-bold text-white/70">{dayLabel(day.logDate, summary.todayKey)}</p>
                   <p className="text-[10px] text-white/35">

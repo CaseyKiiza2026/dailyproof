@@ -1,6 +1,7 @@
 "use client";
 
 import { useUserClock } from "@/components/layout/user-clock";
+import { CalendarProvider } from "@/lib/hooks/use-calendar-data";
 import { TasksProvider } from "@/lib/hooks/use-tasks";
 import { logoutBrowserPush } from "@/lib/push-browser";
 
@@ -47,6 +48,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     habits,
     earliestLogDate,
     loading: habitsLoading,
+    ready: habitsReady,
     error: habitsError,
   } = useHabitsData();
 
@@ -144,7 +146,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     {username ?? "Unknown"}
                   </p>
                   <p className="truncate text-xs text-white/35">
-                    {habitsError
+                    {habitsError && !habitsReady
                       ? "Streak unavailable"
                       : `${currentStreak} day streak`}
                   </p>
@@ -194,7 +196,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               Logging out...
             </p>
           )}
-          <TasksProvider key={userId}>{children}</TasksProvider>
+          <TasksProvider key={userId}>
+            <CalendarProvider>{children}</CalendarProvider>
+          </TasksProvider>
         </div>
       </main>
 

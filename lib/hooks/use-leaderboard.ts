@@ -40,7 +40,9 @@ export function useLeaderboard(
   const latestEvent = events[0];
   const latestEventKey = latestEvent ? `${latestEvent.id}:${latestEvent.userId}` : "";
 
+  const friendsKey = JSON.stringify(acceptedFriends.map(f => ({id: f.otherUser.id, username: f.otherUser.username})));
   useEffect(() => {
+    const targets: {id: string; username: string}[] = JSON.parse(friendsKey);
     let cancelled = false;
 
     async function load() {
@@ -56,24 +58,22 @@ export function useLeaderboard(
       const supabase = createClient();
 
       const friendEntries = await Promise.allSettled(
-        acceptedFriends.map(async (f): Promise<LeaderboardEntry> => {
-          const { data: streak, error: readError } = await supabase.rpc("get_friend_streak", { p_target_user_id: f.otherUser.id });
-          if (isAuthorizationError(readError) && !cancelled) setEntries(current => current.filter(entry => entry.userId !== f.otherUser.id));
+        targets.map(async (f): Promise<LeaderboardEntry> => {
+          const { data: streak, error: readError } = await supabase.rpc("get_friend_streak", { p_target_user_id: f.id });
+          if (isAuthorizationError(readError) && !cancelled) setEntries(current => current.filter(entry => entry.userId !== f.id));
           requireRead(streak, readError);
           if (typeof streak !== "number" || !Number.isFinite(streak)) throw new Error("Invalid streak result.");
-          return { userId: f.otherUser.id, username: f.otherUser.username, isSelf: false, streak };
+          return { userId: f.id, username: f.username, isSelf: false, streak };
         })
       );
 
       if (!cancelled) {
         setEntries(current => {
-          const all: LeaderboardEntry[] = selfStreak === null ? [] : [
-            { userId:selfId, username:selfUsername ?? "you", isSelf:true, streak:selfStreak }
-          ];
+          const all: LeaderboardEntry[] = [];
           friendEntries.forEach((result,index) => {
             if(result.status === "fulfilled") all.push(result.value);
             else if(!isAuthorizationError(result.reason)) {
-              const previous=current.find(entry => !entry.isSelf && entry.userId === acceptedFriends[index].otherUser.id);
+              const previous=current.find(entry => !entry.isSelf && entry.userId === targets[index].id);
               if(previous) all.push(previous);
             }
           });
@@ -88,7 +88,9 @@ export function useLeaderboard(
     return () => {
       cancelled = true;
     };
-  }, [selfId, selfUsername, selfStreak, acceptedFriends, latestEventKey, minute]);
+  }, [selfId, friendsKey, latestEventKey, minute]);
 
-  return { entries, loading, error };
+  const visible = entries.filter(entry => acceptedFriends.some(f => f.otherUser.id === entry.userId));
+  if (selfId && selfStreak !== null) visible.push({userId: selfId, username: selfUsername ?? "you", isSelf: true, streak: selfStreak});
+  return { entries: visible.sort((a,b) => b.streak - a.streak), loading, error };
 }

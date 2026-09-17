@@ -13,12 +13,13 @@ function hideDetails(card: DailySummary): DailySummary {
 
 // The activity owner defines today, even when friends live in different zones.
 // Safe feed signals identify active days; the RPC decides visible data.
-export function useDailySummaries(events: FeedEvent[], minute: number) {
+export function useDailySummaries(events: FeedEvent[], minute: number, eventsReady = true) {
   const [summaries, setSummaries] = useState<DailySummary[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [resolvedEvents, setResolvedEvents] = useState<FeedEvent[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!eventsReady) return;
     let cancelled = false;
     async function load() {
       const supabase = createClient();
@@ -70,11 +71,11 @@ export function useDailySummaries(events: FeedEvent[], minute: number) {
         }
       } catch {
         if (!cancelled) { setError("Unable to load activity. Please try again."); }
-      } finally { if (!cancelled) setLoading(false); }
+      } finally { if (!cancelled) setResolvedEvents(events); }
     }
     void load();
     return () => { cancelled = true; };
-  }, [events, minute]);
+  }, [events, minute, eventsReady]);
 
-  return { summaries, loading, error };
+  return { summaries, loading: !eventsReady || (resolvedEvents !== events && summaries.length === 0), error };
 }

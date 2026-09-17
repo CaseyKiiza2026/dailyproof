@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { DayActivity } from "@/lib/types";
 import { dayActivity, FriendSummaryResult } from "@/lib/friend-summary";
@@ -11,8 +11,13 @@ export function useActivityHistory() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const generation = useRef(0);
+  useEffect(() => () => { generation.current++; }, []);
+  function close() { generation.current++; setDays(null); setLoading(false); setError(null); }
+
   // Reauthorize on every open, including after consent may have been revoked.
   async function load(userId: string, referenceDateKey: string) {
+    const request = ++generation.current;
     setLoading(true);
     setDays(null);
     setError(null);
@@ -25,10 +30,12 @@ export function useActivityHistory() {
         if (rpcError || !data) throw new Error("Unable to load activity.");
         return dayActivity(data as FriendSummaryResult);
       }));
-      setDays(results);
-    } catch { setError("Unable to load activity."); }
-    finally { setLoading(false); }
+      if (request !== generation.current) return;
+      const revoked = results.some(day => !day.detailsVisible);
+      setDays(revoked ? results.map(day => ({...day, detailsVisible: false, statuses: []})) : results);
+    } catch { if (request === generation.current) setError("Unable to load activity."); }
+    finally { if (request === generation.current) setLoading(false); }
   }
 
-  return { days, loading, error, load };
+  return { days, loading, error, load, close };
 }

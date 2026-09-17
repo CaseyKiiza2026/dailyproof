@@ -23,8 +23,8 @@ const MONTH_NAMES = [
 ];
 
 export default function HomePage() {
-  const { habits, earliestLogDate, error } = useHabitsData();
-  const { todayDate: realNow } = useUserClock();
+  const { habits, earliestLogDate, error, ready } = useHabitsData();
+  const { todayDate: realNow, userId } = useUserClock();
   const year = realNow.getFullYear();
   const month = realNow.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -55,20 +55,22 @@ export default function HomePage() {
         <nav className="flex items-center justify-between"><Logo /><Link href="/auth" className="proof-pill px-4 py-2 text-sm font-bold">Login</Link></nav>
         <section className="grid items-center gap-12 py-20 lg:grid-cols-[1fr_.9fr] lg:py-28">
           <div><p className="proof-kicker text-proof-green">GitHub-style accountability</p><h1 className="mt-5 max-w-2xl text-5xl font-black leading-[.96] tracking-[-0.065em] sm:text-7xl">Your consistency should leave evidence.</h1><p className="mt-6 max-w-xl text-base leading-7 text-white/42">DailyProof turns habits into a visible record—monthly grids, yearly heatmaps, and lightweight friend accountability without the social-media noise.</p><div className="mt-8 flex flex-wrap gap-3"><Link href="/dashboard" className="inline-flex h-12 items-center gap-2 rounded-2xl bg-proof-green px-5 text-sm font-black text-black shadow-proof-button">View the demo<ArrowRight size={17} /></Link><Link href="/auth" className="proof-pill h-12 px-5 text-sm font-bold">Create your proof</Link></div></div>
-          {error ? <p role="alert" className="proof-panel p-5 text-proof-red">{error}</p> : (
+          {(
           <div className="proof-panel relative overflow-hidden p-5 shadow-[0_35px_120px_rgba(0,0,0,.7)]">
+            {error && <p role="alert" className="text-proof-red">{error}</p>}
+            {!ready && <p role="status" className="text-sm text-white/35">{error ? "Statistics unavailable" : "Loading habit statistics..."}</p>}
             <div className="absolute -right-20 -top-20 h-52 w-52 rounded-full bg-proof-green/10 blur-3xl" />
             <div className="relative flex items-center justify-between">
               <span className="font-black">{MONTH_NAMES[month]} {year}</span>
-              <span className="rounded-full border border-proof-green/25 bg-proof-green/10 px-3 py-1 text-xs font-bold text-proof-green">{stats.completion >= 50 ? "Winning" : "This month"}</span>
+              <span className="rounded-full border border-proof-green/25 bg-proof-green/10 px-3 py-1 text-xs font-bold text-proof-green">{!userId ? "Sign in to track your proof" : ready && stats.completion >= 50 ? "Winning" : "This month"}</span>
             </div>
             <div className="relative mt-6 grid grid-cols-7 gap-2 sm:grid-cols-10">
-              {heroCells.map((tone, i) => <span key={i} className={`aspect-square rounded-[5px] border border-white/[0.045] ${TONE_CLASS[tone]}`} />)}
+              {heroCells.map((tone, i) => <span key={i} className={`aspect-square rounded-[5px] border border-white/[0.045] ${ready ? TONE_CLASS[tone] : "bg-white/[0.04]"}`} />)}
             </div>
             <div className="relative mt-6 grid grid-cols-3 gap-3">
               {[[`${stats.completion}%`, "Score"], [`${stats.currentStreak}`, "Streak"], [`${stats.completed}`, "Done"]].map(([v, l]) => (
                 <div className="rounded-2xl border border-white/[0.08] bg-black/25 p-3" key={l}>
-                  <p className="text-xl font-black">{v}</p>
+                  <p className="text-xl font-black">{ready && userId ? v : "\u2014"}</p>
                   <p className="text-[10px] uppercase tracking-[.1em] text-white/30">{l}</p>
                 </div>
               ))}

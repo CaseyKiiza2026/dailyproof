@@ -132,7 +132,7 @@ function DashboardContent() {
   );
   const stats = { ...habitStats, ...progress };
   const habitsReady =
-    !dashboard.loading && (!dashboard.error || dashboard.habits.length > 0);
+    dashboard.ready ?? (!dashboard.loading && (!dashboard.error || dashboard.habits.length > 0));
   const progressReady = habitsReady && taskData.ready;
 
   const selectedIso = `${dashboard.viewYear}-${String(dashboard.viewMonth + 1).padStart(2, "0")}-${String(

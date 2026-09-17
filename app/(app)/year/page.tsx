@@ -12,7 +12,7 @@ import { parseDateKey, dateKeyRange, monthDateKeys } from "@/lib/dates";
 import { HabitFormModal } from "@/components/dashboard/habit-form-modal";
 
 export default function YearPage() {
-  const { habits, earliestLogDate, handleHabitCreated, error } = useHabitsData();
+  const { habits, earliestLogDate, handleHabitCreated, error, ready } = useHabitsData();
   const [addHabitOpen, setAddHabitOpen] = useState(false);
   const { todayDate: realNow } = useUserClock();
   const year = realNow.getFullYear();
@@ -39,10 +39,12 @@ export default function YearPage() {
   // instead of drifting from the single source of truth.
   const daysTracked = useMemo(() => computeDaysTracked(habits, yearDateKeys), [habits, yearDateKeys]);
 
-  if (error) return <p role="alert" className="proof-panel p-5 text-proof-red">{error}</p>;
+
 
   return (
     <div className="space-y-8">
+      {error && <p role="alert" className="text-proof-red">{error}</p>}
+      {!ready && <p role="status" className="text-sm text-white/35">{error ? "Habit statistics unavailable." : "Loading habit statistics..."}</p>}
       <header className="flex items-center justify-between gap-4">
         <h1 className="text-5xl font-black tracking-[-0.06em] sm:text-6xl">{year}</h1>
         <button
@@ -71,27 +73,27 @@ export default function YearPage() {
           <div>
             <p className="text-sm text-white/40">Year to date</p>
             <p className="mt-3 text-5xl font-black tracking-[-0.06em]">
-              {daysTracked} <span className="text-sm font-normal tracking-normal text-white/30">days tracked</span>
+              {ready ? daysTracked : "\u2014"} <span className="text-sm font-normal tracking-normal text-white/30">days tracked</span>
             </p>
           </div>
           <div className="text-right">
             <p className="text-sm text-white/40">Best streak</p>
             <p className="mt-3 text-5xl font-black tracking-[-0.06em]">
-              {stats.bestStreak} <span className="text-sm font-normal tracking-normal text-white/30">days</span>
+              {ready ? stats.bestStreak : "\u2014"} <span className="text-sm font-normal tracking-normal text-white/30">days</span>
             </p>
           </div>
         </div>
         <div className="mt-7 flex flex-wrap items-center gap-3 border-t border-white/[0.08] pt-5 text-sm">
           <span className="inline-flex items-center gap-2 font-bold text-proof-green">
             <Flame size={20} className="fill-orange-500 text-orange-500" />
-            {stats.currentStreak} day current streak
+            {ready ? stats.currentStreak : "\u2014"} day current streak
           </span>
           <span className="text-white/25">•</span>
-          <span className="text-white/35">{stats.completion}% completion</span>
+          <span className="text-white/35">{ready ? `${stats.completion}%` : "\u2014"} completion</span>
         </div>
       </section>
 
-      <YearHeatmap habits={habits} year={year} realNow={realNow} />
+      {ready ? <YearHeatmap habits={habits} year={year} realNow={realNow} /> : <section aria-label={error ? "Heatmap unavailable" : "Loading heatmap"} className="proof-panel min-h-[260px] bg-white/[0.02]" />}
     </div>
   );
 }

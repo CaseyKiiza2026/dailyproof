@@ -40,6 +40,7 @@ function toFeedEvent(row: RawFeedEventRow, username: string): FeedEvent {
 export function useFeedData() {
   const [userId, setUserId] = useState<string | null>(null);
   const [events, setEvents] = useState<FeedEvent[]>([]);
+  const [ready, setReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const usernameCache = useRef<Map<string, string>>(new Map());
@@ -60,7 +61,7 @@ export function useFeedData() {
         if (!cancelled) {
           setUserId(null);
           setEvents([]);
-          setLoading(false);
+          setLoading(false); setReady(true);
         }
         return;
       }
@@ -83,7 +84,7 @@ export function useFeedData() {
         setUserId(user.id);
         setEvents((rows ?? []).map((r) => toFeedEvent(r, usernameCache.current.get(r.user_id) ?? "unknown")));
         setLoading(false);
-        setError(null);
+        setError(null); setReady(true);
       }
     }
 
@@ -139,5 +140,5 @@ export function useFeedData() {
     };
   }, [userId]);
 
-  return { userId, events, loading, error };
+  return { userId, events, loading, ready, error };
 }

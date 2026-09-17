@@ -10,10 +10,9 @@ import themePlugin from "@fullcalendar/react/themes/classic";
 import "@fullcalendar/react/skeleton.css";
 import "@fullcalendar/react/themes/classic/theme.css";
 import "@fullcalendar/react/themes/classic/palette.css";
-import { useRemoteData } from "@/lib/hooks/use-remote-data";
+import { useCalendarData } from "@/lib/hooks/use-calendar-data";
 import { Commitment } from "@/lib/calendar";
 import {
-  getCalendar,
   saveCommitment,
   deleteCommitment,
   setHabitTime,
@@ -25,7 +24,7 @@ export function CalendarBoard() {
   const router = useRouter();
   const { today, timeZone } = useUserClock();
   const controller = useCalendarController();
-  const remote = useRemoteData(getCalendar, "Unable to load calendar.");
+  const remote = useCalendarData();
   const data = remote.data ?? { tasks: [], commitments: [], habits: [] };
   const ready = remote.data !== null;
   const [error, setError] = useState("");
@@ -34,6 +33,11 @@ export function CalendarBoard() {
   const { refresh } = remote;
   useEffect(() => {
     void refresh();
+    const onFocus = () => {
+      void refresh();
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
   }, [refresh]);
   async function run(action: () => Promise<unknown>) {
     setBusy(true);
@@ -212,9 +216,17 @@ export function CalendarBoard() {
         {!ready && (
           <div
             role="status"
-            className="absolute inset-0 z-10 grid place-items-center bg-[#0a0d0b]/95 text-sm text-white/55"
+            className="h-[600px] space-y-6 p-5 text-sm text-white/55"
           >
             {remote.error ? "Calendar unavailable" : "Loading calendar..."}
+            <div
+              aria-hidden="true"
+              className="grid h-[520px] grid-cols-7 gap-2"
+            >
+              {Array.from({ length: 7 }, (_, i) => (
+                <div key={i} className="rounded-lg bg-white/[0.025]" />
+              ))}
+            </div>
           </div>
         )}
         <div
@@ -223,28 +235,30 @@ export function CalendarBoard() {
               controller.view?.type === "timeGridWeek" ? 700 : undefined,
           }}
         >
-          <FullCalendar
-            controller={controller}
-            plugins={[themePlugin, dayGridPlugin, timeGridPlugin]}
-            initialView="timeGridDay"
-            initialDate={today}
-            timeZone={timeZone}
-            now={() => new Date()}
-            headerToolbar={false}
-            height={600}
-            events={events}
-            eventMinHeight={48}
-            eventClass="min-h-11"
-            editable={false}
-            eventClick={(info) => {
-              const c = data.commitments.find((c) => c.id === info.event.id);
-              if (c) setEditing(c);
-              else
-                navigateCalendarEvent(info.event.url, info.jsEvent, (url) =>
-                  router.push(url),
-                );
-            }}
-          />
+          {ready && (
+            <FullCalendar
+              controller={controller}
+              plugins={[themePlugin, dayGridPlugin, timeGridPlugin]}
+              initialView="timeGridDay"
+              initialDate={today}
+              timeZone={timeZone}
+              now={() => new Date()}
+              headerToolbar={false}
+              height={600}
+              events={events}
+              eventMinHeight={48}
+              eventClass="min-h-11"
+              editable={false}
+              eventClick={(info) => {
+                const c = data.commitments.find((c) => c.id === info.event.id);
+                if (c) setEditing(c);
+                else
+                  navigateCalendarEvent(info.event.url, info.jsEvent, (url) =>
+                    router.push(url),
+                  );
+              }}
+            />
+          )}
         </div>
       </div>
 

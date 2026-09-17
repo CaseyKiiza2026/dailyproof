@@ -26,9 +26,9 @@ export default function FriendsPage() {
   const visibleOutgoing = friends.outgoingPending.filter((f) => f.otherUser.username.toLowerCase().includes(query));
 
   const hasNothingAtAll =
-    !friends.error && !friends.loading && friends.acceptedFriends.length === 0 && friends.incomingPending.length === 0 && friends.outgoingPending.length === 0;
+    friends.ready && !friends.error && friends.acceptedFriends.length === 0 && friends.incomingPending.length === 0 && friends.outgoingPending.length === 0;
 
-  const circleIsEmpty = !friends.error && visibleAccepted.length === 0 && visibleOutgoing.length === 0;
+  const circleIsEmpty = friends.ready && !friends.error && visibleAccepted.length === 0 && visibleOutgoing.length === 0;
 
   async function handleRespond(friendshipId: string, accept: boolean) {
     setRespondingId(friendshipId);
@@ -63,6 +63,8 @@ export default function FriendsPage() {
           placeholder="Search friends or username"
         />
       </label>
+
+      {!friends.ready && <section aria-label="Loading friendships and requests" className="proof-panel min-h-[280px] space-y-3 p-5"><p className="text-sm text-white/35">{friends.error ? "Friends and requests unavailable." : "Loading friends and requests..."}</p>{[0,1,2].map(i => <div key={i} aria-hidden="true" className="h-16 rounded-xl bg-white/[0.04]" />)}</section>}
 
       {friends.incomingPending.length > 0 && (
         <section className="proof-panel overflow-hidden">

@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 
 const USERNAME_PATTERN = /^[a-z0-9_]{3,20}$/;
 
-type UsernameStatus = "idle" | "checking" | "available" | "taken" | "invalid";
+type UsernameStatus = "idle" | "checking" | "available" | "taken" | "invalid" | "error";
 
 export default function AuthPage() {
   const router = useRouter();
@@ -20,7 +20,7 @@ export default function AuthPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [checkResult, setCheckResult] = useState<{ username: string; available: boolean } | null>(null);
+  const [checkResult, setCheckResult] = useState<{ username: string; available: boolean; error?: boolean } | null>(null);
   const usernameCheckId = useRef(0);
 
   const usernameFormatValid = USERNAME_PATTERN.test(username);
@@ -30,14 +30,15 @@ export default function AuthPage() {
 
     const requestId = ++usernameCheckId.current;
 
+    let cancelled = false;
     const timeout = setTimeout(async () => {
       const supabase = createClient();
-      const { data } = await supabase.from("profiles").select("id").eq("username", username).maybeSingle();
-      if (usernameCheckId.current !== requestId) return;
-      setCheckResult({ username, available: !data });
+      const { data, error } = await supabase.from("profiles").select("id").eq("username", username).maybeSingle().then(result => result, () => ({data: null, error: true}));
+      if (cancelled || usernameCheckId.current !== requestId) return;
+      setCheckResult({ username, available: !error && !data, error: !!error });
     }, 500);
 
-    return () => clearTimeout(timeout);
+    return () => { clearTimeout(timeout); cancelled = true; };
   }, [username, mode, usernameFormatValid]);
 
   const usernameStatus: UsernameStatus =
@@ -46,7 +47,7 @@ export default function AuthPage() {
       : !usernameFormatValid
         ? "invalid"
         : checkResult?.username === username
-          ? checkResult.available
+          ? checkResult.error ? "error" : checkResult.available
             ? "available"
             : "taken"
           : "checking";
@@ -68,6 +69,7 @@ export default function AuthPage() {
         setError("That username is already taken.");
         return;
       }
+      if (usernameStatus === "error") { setError("Unable to verify username availability. Try again."); return; }
       if (usernameStatus === "checking") {
         setError("Still checking username availability.");
         return;
@@ -98,12 +100,13 @@ export default function AuthPage() {
         <div className="flex justify-center"><Logo /></div>
         <div className="mt-6 text-center"><h1 className="text-3xl font-black tracking-[-0.05em]">Prove it. Every day.</h1><p className="mt-2 text-sm text-white/35">Turn habits into visible proof of consistency.</p></div>
         <section className="proof-panel mt-8 p-5 sm:p-6">
-          <div className="flex rounded-full border border-white/[0.08] bg-white/[0.025] p-1">{(["login","signup"] as const).map((item) => <button onClick={() => { setMode(item); setError(null); setUsername(""); }} key={item} className={`proof-focus flex-1 rounded-full py-2.5 text-sm font-bold capitalize ${mode === item ? "bg-white/[0.08]" : "text-white/35"}`}>{item === "signup" ? "Sign up" : "Login"}</button>)}</div>
+          <div className="flex rounded-full border border-white/[0.08] bg-white/[0.025] p-1">{(["login","signup"] as const).map((item) => <button onClick={() => { setMode(item); setError(null); setUsername(""); setCheckResult(null); }} key={item} className={`proof-focus flex-1 rounded-full py-2.5 text-sm font-bold capitalize ${mode === item ? "bg-white/[0.08]" : "text-white/35"}`}>{item === "signup" ? "Sign up" : "Login"}</button>)}</div>
           <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
             {mode === "signup" && (
               <label className="block">
                 <span className="mb-2 block text-xs font-semibold text-white/50">Username</span>
-                <input required type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="jethro" className="proof-focus h-12 w-full rounded-2xl border border-white/[0.09] bg-white/[0.025] px-4 text-sm outline-none placeholder:text-white/20" />
+                <input required type="text" value={username} onChange={(e) => { setCheckResult(null); setUsername(e.target.value); }} placeholder="jethro" className="proof-focus h-12 w-full rounded-2xl border border-white/[0.09] bg-white/[0.025] px-4 text-sm outline-none placeholder:text-white/20" />
+                {usernameStatus === "error" && <p role="alert" className="mt-1.5 text-xs font-semibold text-proof-red">Unable to verify availability. Edit the username to retry.</p>}
                 {usernameStatus === "checking" && <p className="mt-1.5 text-xs font-semibold text-white/35">Checking availability…</p>}
                 {usernameStatus === "available" && <p className="mt-1.5 text-xs font-semibold text-proof-green">✓ Available</p>}
                 {usernameStatus === "taken" && <p className="mt-1.5 text-xs font-semibold text-proof-red">✗ Already taken</p>}
@@ -114,7 +117,7 @@ export default function AuthPage() {
             <label className="block"><span className="mb-2 block text-xs font-semibold text-white/50">Password</span><span className="relative block"><input required type={visible ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="proof-focus h-12 w-full rounded-2xl border border-white/[0.09] bg-white/[0.025] px-4 pr-12 text-sm outline-none placeholder:text-white/20" /><button type="button" onClick={() => setVisible(!visible)} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30">{visible ? <EyeOff size={17} /> : <Eye size={17} />}</button></span></label>
             {mode === "signup" && <label className="block"><span className="mb-2 block text-xs font-semibold text-white/50">Confirm password</span><input required type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••••" className="proof-focus h-12 w-full rounded-2xl border border-white/[0.09] bg-white/[0.025] px-4 text-sm outline-none placeholder:text-white/20" /></label>}
             {error && <p className="text-xs font-semibold text-proof-red">{error}</p>}
-            <button type="submit" disabled={loading} className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-proof-green text-sm font-black text-black shadow-proof-button disabled:opacity-60">
+            <button type="submit" disabled={loading || (mode === "signup" && usernameStatus !== "available")} className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-proof-green text-sm font-black text-black shadow-proof-button disabled:opacity-60">
               {loading ? <Loader2 size={17} className="animate-spin" /> : <>{mode === "login" ? "Enter DailyProof" : "Create account"}<ArrowRight size={17} /></>}
             </button>
           </form>

@@ -3,6 +3,8 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { initializePreferences } from "@/lib/actions/preferences";
+import { HabitsProvider } from "@/lib/hooks/use-habits-data";
+import type { readPreferencesSeed } from "@/lib/preferences-seed";
 import { calendarDays } from "@/lib/timezone";
 import { parseDateKey } from "@/lib/dates";
 
@@ -20,11 +22,13 @@ interface Clock {
 
 const ClockContext = createContext<Clock | null>(null);
 
-export function UserClockProvider({ children }: { children: React.ReactNode }) {
-  const [preferences, setPreferences] = useState<Awaited<ReturnType<typeof initializePreferences>> | null>(null);
-  const [ready, setReady] = useState(false);
+export function UserClockProvider({ children, seed }: { children: React.ReactNode; seed?: Awaited<ReturnType<typeof readPreferencesSeed>> }) {
+  const [initialSeed] = useState(seed);
+  const [retry, setRetry] = useState(0);
+  const [preferences, setPreferences] = useState<Awaited<ReturnType<typeof initializePreferences>> | null>(seed?.preferences ?? null);
+  const [ready, setReady] = useState(seed !== undefined);
   const [error, setError] = useState(false);
-  const [now, setNow] = useState(() => new Date());
+  const [now, setNow] = useState(() => new Date(seed?.now ?? Date.now()));
 
   useEffect(() => {
     const refresh = () => setNow(new Date());
@@ -42,7 +46,7 @@ export function UserClockProvider({ children }: { children: React.ReactNode }) {
     const supabase = createClient();
     let disposed = false;
     let generation = 0;
-    let loadedUser: string | null | undefined;
+    let loadedUser: string | null | undefined = retry === 0 && initialSeed !== undefined ? initialSeed.preferences?.userId ?? null : undefined;
     async function load(userId: string | null) {
       if (loadedUser === userId) return;
       loadedUser = userId;
@@ -67,7 +71,7 @@ export function UserClockProvider({ children }: { children: React.ReactNode }) {
       queueMicrotask(() => { if (!disposed) void load(session?.user.id ?? null); });
     });
     return () => { disposed = true; generation++; subscription.unsubscribe(); };
-  }, []);
+  }, [retry, initialSeed]);
 
   const timeZone = preferences?.timeZone ?? "UTC"; // Anonymous landing page only.
   const days = calendarDays(now, timeZone);
@@ -79,9 +83,9 @@ export function UserClockProvider({ children }: { children: React.ReactNode }) {
     setShareDetailedActivity: (enabled) => setPreferences((current) => current ? { ...current, shareDetailedActivity: enabled } : current)
   };
 
-  if (error) return <div className="p-6 text-center"><p>Unable to load your preferences.</p><button className="proof-pill mt-3 px-4 py-2" onClick={() => window.location.reload()}>Retry</button></div>;
-  if (!ready) return <p className="p-6 text-center text-sm text-white/50">Loading DailyProof…</p>;
-  return <ClockContext.Provider value={value}>{children}</ClockContext.Provider>;
+  if (error) return <div className="mx-auto min-h-screen max-w-7xl p-6"><div role="alert" className="proof-panel min-h-[600px] p-6 text-center"><p>Unable to load your preferences.</p><button className="proof-pill mt-3 px-4 py-2" onClick={() => setRetry(value => value + 1)}>Retry</button></div></div>;
+  if (!ready) return <div role="status" className="mx-auto min-h-screen max-w-7xl space-y-6 p-6"><p className="text-sm text-white/50">Loading DailyProof…</p><div aria-hidden="true" className="h-16 rounded-2xl bg-white/[0.04]" /><div aria-hidden="true" className="proof-panel min-h-[600px]" /></div>;
+  return <ClockContext.Provider value={value}><HabitsProvider key={value.userId ?? "anonymous"}>{children}</HabitsProvider></ClockContext.Provider>;
 }
 
 export function useUserClock(): Clock {
