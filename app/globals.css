@@ -26,9 +26,10 @@
 .desktop-sidebar nav a { border-radius: 12px; min-height: 44px; font-weight: 500; padding: 10px 12px; box-shadow: none; }
 .desktop-sidebar nav a[aria-current="page"] { background: color-mix(in srgb, var(--accent), transparent 88%); }
 .desktop-sidebar .bg-gradient-to-br { background: var(--raised); color: var(--accent); }
-.mobile-navigation { background: var(--surface); border-color: var(--border); border-radius: 24px; box-shadow: 0 8px 24px #0002; padding-bottom: max(8px, env(safe-area-inset-bottom)); }
-.mobile-navigation a { font-size: 11px; gap: 6px; }
-.mobile-navigation a[aria-current="page"]::after { content: ''; width: 4px; height: 4px; border-radius: 50%; background: var(--accent); }
+.mobile-navigation { left: max(12px, env(safe-area-inset-left)); right: max(12px, env(safe-area-inset-right)); bottom: max(12px, env(safe-area-inset-bottom)); background: var(--surface); border-color: var(--border); border-radius: 24px; box-shadow: 0 8px 24px #0002; }
+.mobile-navigation a { min-width: 0; min-height: 60px; font-size: 11px; gap: 6px; }
+.mobile-navigation a::after { content: ''; width: 4px; height: 4px; border-radius: 50%; background: var(--accent); opacity: 0; }
+.mobile-navigation a[aria-current="page"]::after { opacity: 1; }
 .app-shell h1 { font-size: 30px; font-weight: 600; letter-spacing: -.035em; line-height: 1.35; }
 .app-shell h2 { font-weight: 600; letter-spacing: -.015em; }
 .home-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
@@ -39,6 +40,7 @@
 .progress-track { margin-top: 16px; height: 8px; border-radius: 8px; background: var(--raised); overflow: hidden; }
 .progress-track > span { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width 420ms ease; }
 .focus-task { padding: 14px 0; border-bottom: 1px solid var(--border); }
+.focus-task .flex > span { min-width: 0; overflow-wrap: anywhere; }
 .focus-task:last-child { border-bottom: 0; }
 .focus-check { width: 24px; height: 24px; flex-shrink: 0; border-radius: 7px; border: 1px solid var(--muted); display: grid; place-items: center; }
 .focus-check[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
@@ -83,6 +85,7 @@
 }
 .proof-focus:focus-visible, button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 button, a, summary { -webkit-tap-highlight-color: transparent; }
+button, a, summary, input, select, textarea, label { touch-action: manipulation; }
 button { transition: background-color 120ms, border-color 120ms, transform 120ms; }
 button:active:not(:disabled) { transform: scale(.98); }
 summary { cursor: pointer; }
@@ -96,6 +99,15 @@ summary { cursor: pointer; }
 html[data-theme="light"] [class*="text-white/"] { color: var(--secondary); }
 html[data-theme="light"] .bg-proof-green.text-black { color: var(--on-accent); }
 @media (max-width: 1100px) { .home-overview { grid-template-columns: 1fr 1fr; } .week-card { grid-column: 1 / -1; } }
+@media (max-width: 1023px) {
+  .app-shell { min-height: 100dvh; width: 100%; max-width: 100%; }
+  .app-shell main { width: 100%; max-width: 100%; padding-bottom: calc(110px + env(safe-area-inset-bottom)); }
+  .app-shell main > div { min-width: 0; max-width: 100%; padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); }
+  .home-page > *, .assistant-layout > *, .task-buckets > * { min-width: 0; max-width: 100%; }
+  .app-shell input, .app-shell select, .app-shell textarea { min-width: 0; max-width: 100%; font-size: 16px; }
+  .app-shell button, .app-shell summary { min-height: 44px; min-width: 44px; }
+  .app-shell [role="dialog"] { min-width: 0; max-width: 100%; max-height: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); overscroll-behavior: contain; }
+}
 @media (max-width: 639px) {
   .home-page { display: flex; flex-direction: column; gap: 16px; }
   .home-page > *, .home-page .home-overview > article { margin-top: 0 !important; }
@@ -179,6 +191,9 @@ button, input, textarea {
   background: rgba(37, 216, 111, .28);
 }
 
+/* Keep native overlay scrollbars on touch layouts. A forced scrollbar width
+   makes WebKit's visual viewport narrower than its layout viewport. */
+@media (min-width: 1024px) {
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -193,6 +208,7 @@ button, input, textarea {
   border-radius: 999px;
   background: rgba(255, 255, 255, .13);
   background-clip: padding-box;
+}
 }
 
 @layer components {

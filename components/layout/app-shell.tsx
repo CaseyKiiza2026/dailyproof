@@ -211,7 +211,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </main>
 
-      <nav aria-label="Mobile navigation" className="mobile-navigation fixed bottom-4 left-1/2 z-50 flex w-[calc(100%-24px)] max-w-[560px] -translate-x-1/2 items-center justify-around rounded-[28px] border border-white/[0.10] bg-[#090c0a]/90 px-3 py-2 shadow-[0_22px_90px_rgba(0,0,0,.65),inset_0_1px_0_rgba(255,255,255,.04)] backdrop-blur-xl lg:hidden">
+      <nav aria-label="Mobile navigation" className="mobile-navigation fixed z-50 mx-auto grid max-w-[560px] grid-cols-[repeat(5,minmax(0,1fr))] items-center rounded-[28px] border border-white/[0.10] bg-[#090c0a]/90 px-2 py-2 shadow-[0_22px_90px_rgba(0,0,0,.65),inset_0_1px_0_rgba(255,255,255,.04)] backdrop-blur-xl lg:hidden">
         {navigation
           .filter(({ href }) =>
             [
