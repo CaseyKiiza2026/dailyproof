@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Search, Sparkles, UserPlus, UsersRound, X } from "lucide-react";
+import { Check, Search, UserPlus, UsersRound, X } from "lucide-react";
 import { useFriendsData } from "@/lib/hooks/use-friends-data";
 import { AddFriendModal } from "@/components/friends/add-friend-modal";
 import { FriendRowMenu } from "@/components/friends/friend-row-menu";
@@ -40,7 +40,7 @@ export default function FriendsPage() {
     <div className="space-y-6">
       <header className="flex items-center justify-between">
         <div>
-          <p className="proof-kicker">Accountability circle</p>
+
           <h1 className="mt-2 text-3xl font-black tracking-[-0.04em]">Friends</h1>
         </div>
         <button
@@ -60,6 +60,7 @@ export default function FriendsPage() {
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           className="w-full bg-transparent text-sm outline-none placeholder:text-white/25"
+          aria-label="Search friends or username"
           placeholder="Search friends or username"
         />
       </label>
@@ -168,21 +169,6 @@ export default function FriendsPage() {
           )}
         </section>
       )}
-
-      <section className="proof-panel p-5">
-        <p className="proof-kicker">Shared template</p>
-        <div className="mt-3 flex items-center gap-3">
-          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/[0.08] bg-white/[0.03] text-white/35">
-            <Sparkles size={17} />
-          </div>
-          <div>
-            <p className="text-sm font-bold text-white/70">No shared templates yet</p>
-            <p className="mt-1 max-w-md text-xs leading-5 text-white/35">
-              When a friend shares a habit template, you&rsquo;ll be able to copy and customize it here. Template sharing isn&rsquo;t built yet.
-            </p>
-          </div>
-        </div>
-      </section>
 
       {addOpen && <AddFriendModal friendships={friends.friendships} onClose={() => setAddOpen(false)} onAdd={friends.addFriend} />}
 

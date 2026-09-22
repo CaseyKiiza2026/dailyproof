@@ -5,6 +5,7 @@ import { Task, TaskInput, taskBucket, taskBuckets } from "@/lib/tasks";
 import { useTasks } from "@/lib/hooks/use-tasks";
 import { localDateTime, localDateTimeToUtc } from "@/lib/timezone";
 import { ProofPanel } from "@/components/proofs/proof-panel";
+import { Modal } from "@/components/ui/modal";
 
 const empty: TaskInput = {
   title: "",
@@ -36,20 +37,20 @@ export function TaskBoard() {
     setForm(task === "new" ? empty : task);
   }
   return (
-    <div className="space-y-6">
+    <div className="task-board space-y-6">
       <header className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">To-Dos</h1>
         <button className="proof-action" onClick={() => edit("new")}>
           Add task
         </button>
       </header>
-      <p className="text-sm text-white/55">Dates and times use {timeZone}.</p>
       {(error || taskData.error) && (
         <p role="alert" className="text-sm text-proof-red">
           {error || taskData.error}
         </p>
       )}
       {editing && (
+        <Modal title={editing === "new" ? "New task" : "Edit task"} onClose={() => setEditing(null)}>
         <form
           key={editing === "new" ? "new" : editing.id}
           className="proof-panel space-y-4 p-4"
@@ -75,9 +76,6 @@ export function TaskBoard() {
             );
           }}
         >
-          <h2 className="text-lg font-bold">
-            {editing === "new" ? "New task" : "Edit task"}
-          </h2>
           <label className="proof-field">
             Title
             <input
@@ -159,11 +157,13 @@ export function TaskBoard() {
             </button>
           </div>
         </form>
+        </Modal>
       )}
 
+      <div className="task-buckets">
       {taskBuckets.map((bucket) => (
-        <section key={bucket} className="space-y-3">
-          <h2 className="text-sm font-bold uppercase tracking-wide text-white/60">
+        <section key={bucket} data-bucket={bucket} data-empty={ready && !tasks.some(task => taskBucket(task, today, timeZone) === bucket)} className="space-y-3">
+          <h2 className="text-base font-semibold text-white/80">
             {bucket}
           </h2>
           {!ready && (
@@ -244,6 +244,7 @@ export function TaskBoard() {
             ) && <p className="text-sm text-white/35">No tasks.</p>}
         </section>
       ))}
+      </div>
     </div>
   );
 }

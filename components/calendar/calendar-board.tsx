@@ -6,6 +6,7 @@ import { navigateCalendarEvent } from "@/lib/calendar-navigation";
 import FullCalendar, { useCalendarController } from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/react/daygrid";
 import timeGridPlugin from "@fullcalendar/react/timegrid";
+import interactionPlugin from "@fullcalendar/react/interaction";
 import themePlugin from "@fullcalendar/react/themes/classic";
 import "@fullcalendar/react/skeleton.css";
 import "@fullcalendar/react/themes/classic/theme.css";
@@ -19,6 +20,7 @@ import {
 } from "@/lib/actions/calendar";
 import { useUserClock } from "@/components/layout/user-clock";
 import { localDateTime, localDateTimeToUtc } from "@/lib/timezone";
+import { Modal } from "@/components/ui/modal";
 
 export function CalendarBoard() {
   const router = useRouter();
@@ -30,6 +32,7 @@ export function CalendarBoard() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<Commitment | "new" | null>(null);
+  const [slot, setSlot] = useState<{ start: string; end: string } | null>(null);
   const { refresh } = remote;
   useEffect(() => {
     void refresh();
@@ -57,7 +60,9 @@ export function CalendarBoard() {
       title: `Fixed · ${c.title}`,
       start: c.start_at,
       end: c.end_at,
-      color: "#7c3aed",
+      color: "var(--raised)",
+      contrastColor: "var(--foreground)",
+      className: "commitment-event",
     })),
     ...data.tasks
       .filter((t) => t.scheduled_start && t.status !== "cancelled")
@@ -66,7 +71,9 @@ export function CalendarBoard() {
         title: t.title,
         start: t.scheduled_start!,
         end: t.scheduled_end!,
-        color: t.status === "completed" ? "#166534" : "#14874a",
+        color: "var(--raised)",
+        contrastColor: "var(--foreground)",
+        className: t.status === "completed" ? "task-event completed-event" : "task-event",
         url: "/todos",
       })),
     ...data.habits
@@ -77,7 +84,9 @@ export function CalendarBoard() {
         daysOfWeek: h.scheduled_days.map((d) => d % 7),
         startTime: h.scheduled_time!,
         duration: { minutes: h.duration_minutes! },
-        color: "#956410",
+        color: "var(--raised)",
+        contrastColor: "var(--foreground)",
+        className: "habit-event",
         url: "/dashboard",
       })),
   ];
@@ -85,13 +94,11 @@ export function CalendarBoard() {
     <div className="space-y-5">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">Calendar</h1>
-        <button className="proof-action" onClick={() => setEditing("new")}>
+        <button className="proof-action proof-primary" onClick={() => { setSlot(null); setEditing("new"); }}>
           Add commitment
         </button>
       </header>
-      <p className="text-sm text-white/55">
-        Times use {timeZone}. Fixed commitments do not count toward completion.
-      </p>
+      <p className="text-xs text-white/55">{timeZone}</p>
       {(error || remote.error) && (
         <p role="alert" className="text-proof-red">
           {error || remote.error}{" "}
@@ -101,6 +108,7 @@ export function CalendarBoard() {
         </p>
       )}
       {editing && (
+        <Modal title={editing === "new" ? "New commitment" : "Edit commitment"} onClose={() => setEditing(null)}>
         <form
           key={typeof editing === "string" ? editing : editing.id}
           className="proof-panel space-y-4 p-4"
@@ -117,9 +125,6 @@ export function CalendarBoard() {
             });
           }}
         >
-          <h2 className="font-bold">
-            {editing === "new" ? "New commitment" : "Edit commitment"}
-          </h2>
           <label className="proof-field">
             Title
             <input
@@ -147,7 +152,7 @@ export function CalendarBoard() {
                   required
                   defaultValue={
                     editing === "new"
-                      ? `${today}T${field === "start" ? "09" : "10"}:00`
+                      ? slot?.[field] ?? `${today}T${field === "start" ? "09" : "10"}:00`
                       : localDateTime(editing[`${field}_at`], timeZone)
                   }
                 />
@@ -167,6 +172,7 @@ export function CalendarBoard() {
             </button>
           </div>
         </form>
+        </Modal>
       )}
       <div className="flex flex-wrap gap-2">
         <button
@@ -210,7 +216,6 @@ export function CalendarBoard() {
         </div>
       </div>
       <div
-        data-color-scheme="dark"
         className="proof-calendar relative min-h-[600px] min-w-0 overflow-x-auto rounded-xl border border-white/10"
       >
         {!ready && (
@@ -238,7 +243,15 @@ export function CalendarBoard() {
           {ready && (
             <FullCalendar
               controller={controller}
-              plugins={[themePlugin, dayGridPlugin, timeGridPlugin]}
+              plugins={[themePlugin, dayGridPlugin, timeGridPlugin, interactionPlugin]}
+              dateClick={(info) => {
+                const start = info.dateStr.slice(0, 16);
+                const localStart = info.allDay ? `${info.dateStr.slice(0, 10)}T09:00` : start;
+                const instant = localDateTimeToUtc(localStart, timeZone);
+                if (!instant) return;
+                setSlot({ start: localStart, end: localDateTime(new Date(new Date(instant).getTime() + 60 * 60 * 1000).toISOString(), timeZone) });
+                setEditing("new");
+              }}
               initialView="timeGridDay"
               initialDate={today}
               timeZone={timeZone}
@@ -248,6 +261,7 @@ export function CalendarBoard() {
               events={events}
               eventMinHeight={48}
               eventClass="min-h-11"
+              slotLaneClass="calendar-slot"
               editable={false}
               eventClick={(info) => {
                 const c = data.commitments.find((c) => c.id === info.event.id);

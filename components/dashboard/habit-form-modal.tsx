@@ -112,7 +112,7 @@ export function HabitFormModal({ habit, onClose, onCreated, onUpdated }: HabitFo
             className="proof-focus h-10 w-full rounded-xl border border-white/[0.09] bg-white/[0.035] px-3 text-sm text-white"
           >
             {HABIT_CATEGORIES.map((option) => (
-              <option key={option} value={option} className="bg-[#0a0d0b]">
+              <option key={option} value={option} className="bg-proof-panel">
                 {option}
               </option>
             ))}

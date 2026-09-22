@@ -36,7 +36,7 @@ export function HabitRowMenu({ onEdit, onDelete }: HabitRowMenuProps) {
       </button>
 
       {open && (
-        <div className="absolute bottom-full right-0 z-20 mb-2 w-40 overflow-hidden rounded-xl border border-white/[0.09] bg-[#0d110f] shadow-proof-card sm:bottom-auto sm:left-0 sm:right-auto sm:top-7 sm:mb-0 sm:w-32">
+        <div className="absolute bottom-full right-0 z-20 mb-2 w-40 overflow-hidden rounded-xl border border-white/[0.09] bg-proof-panel2 shadow-proof-card sm:bottom-auto sm:left-0 sm:right-auto sm:top-7 sm:mb-0 sm:w-32">
           <button
             type="button"
             onClick={() => {

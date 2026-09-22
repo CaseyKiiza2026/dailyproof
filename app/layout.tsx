@@ -14,8 +14,9 @@ export default async function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   const seed = await readPreferencesSeed();
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body>
+        <script dangerouslySetInnerHTML={{ __html: `try{document.documentElement.dataset.theme=localStorage.getItem('dailyproof.theme')==='light'?'light':'dark'}catch{}` }} />
         <UserClockProvider seed={seed}>{children}</UserClockProvider>
       </body>
     </html>

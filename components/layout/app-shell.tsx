@@ -13,12 +13,12 @@ import {
   Bell,
   CalendarDays,
   ListTodo,
-  Grid2X2,
+  House,
+  Ellipsis,
   LogOut,
-  RadioTower,
-  UserRound,
   UsersRound,
 } from "lucide-react";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Logo } from "@/components/ui/logo";
 import { createClient } from "@/lib/supabase/client";
 import { useHabitsData } from "@/lib/hooks/use-habits-data";
@@ -26,18 +26,24 @@ import { parseDateKey, dateKeyRange } from "@/lib/dates";
 import { computeCurrentStreak } from "@/lib/stats";
 
 const navigation = [
-  { href: "/dashboard", label: "Dashboard", icon: Grid2X2 },
-  { href: "/calendar", label: "Calendar", icon: CalendarDays },
+  { href: "/dashboard", label: "Home", icon: House },
   { href: "/todos", label: "To-Dos", icon: ListTodo },
-  { href: "/notifications", label: "Notifications", icon: Bell },
+  { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/assistant", label: "Assistant", icon: Sparkles },
-  { href: "/year", label: "Year", icon: CalendarDays },
-  { href: "/feed", label: "Feed", icon: RadioTower },
   { href: "/friends", label: "Friends", icon: UsersRound },
-  { href: "/profile", label: "Profile", icon: UserRound },
+  { href: "/profile", label: "More", icon: Ellipsis },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem("dailyproof.launched")) return;
+      sessionStorage.setItem("dailyproof.launched", "true");
+    } catch { return; }
+    document.documentElement.dataset.launch = "true";
+    const timer = window.setTimeout(() => { delete document.documentElement.dataset.launch; }, 900);
+    return () => { window.clearTimeout(timer); delete document.documentElement.dataset.launch; };
+  }, []);
   const pathname = usePathname();
   const router = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
@@ -107,16 +113,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const initials = username ? username.slice(0, 2).toUpperCase() : "";
 
   return (
-    <div className="min-h-screen lg:grid lg:grid-cols-[240px_minmax(0,1fr)]">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[240px] overflow-y-auto border-r border-white/[0.07] bg-black/35 px-5 py-7 backdrop-blur-xl lg:flex lg:flex-col">
+    <div className="app-shell min-h-screen lg:grid lg:grid-cols-[248px_minmax(0,1fr)]">
+      <aside className="desktop-sidebar fixed inset-y-0 left-0 z-30 hidden w-[248px] overflow-y-auto border-r border-white/[0.07] bg-black/35 px-5 py-7 backdrop-blur-xl lg:flex lg:flex-col">
         <Logo />
-        <nav className="mt-12 space-y-2">
+        <nav aria-label="Main navigation" className="mt-8 space-y-1">
           {navigation.map(({ href, label, icon: Icon }) => {
             const active = pathname === href;
             return (
               <Link
                 key={href}
                 href={href}
+                aria-current={active ? "page" : undefined}
                 className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition ${active ? "bg-proof-green/10 text-proof-green shadow-[inset_0_0_0_1px_rgba(37,216,111,.16)]" : "text-white/45 hover:bg-white/[0.035] hover:text-white"}`}
               >
                 <Icon size={19} strokeWidth={active ? 2.3 : 1.8} />
@@ -125,7 +132,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
-        <div className="mt-auto proof-panel p-4">
+        <div className="mt-auto space-y-4 pt-8"><ThemeToggle /><div className="proof-panel p-3">
           <div className="flex items-center gap-3">
             <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gradient-to-br from-proof-green/80 to-emerald-900 text-xs font-black text-black">
               {loadingProfile ? (
@@ -163,10 +170,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </button>
           </div>
         </div>
+        </div>
       </aside>
 
       <main className="min-w-0 pb-28 lg:col-start-2 lg:pb-12">
-        <div className="flex flex-wrap justify-end gap-2 px-4 pt-3 lg:hidden">
+        <div className="mobile-utilities flex flex-wrap justify-end gap-2 px-4 pt-3 lg:hidden">
+          <ThemeToggle />
           <Link
             href="/notifications"
             aria-label="Notifications"
@@ -202,14 +211,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </main>
 
-      <nav className="fixed bottom-4 left-1/2 z-50 flex w-[calc(100%-24px)] max-w-[560px] -translate-x-1/2 items-center justify-around rounded-[28px] border border-white/[0.10] bg-[#090c0a]/90 px-3 py-2 shadow-[0_22px_90px_rgba(0,0,0,.65),inset_0_1px_0_rgba(255,255,255,.04)] backdrop-blur-xl lg:hidden">
+      <nav aria-label="Mobile navigation" className="mobile-navigation fixed bottom-4 left-1/2 z-50 flex w-[calc(100%-24px)] max-w-[560px] -translate-x-1/2 items-center justify-around rounded-[28px] border border-white/[0.10] bg-[#090c0a]/90 px-3 py-2 shadow-[0_22px_90px_rgba(0,0,0,.65),inset_0_1px_0_rgba(255,255,255,.04)] backdrop-blur-xl lg:hidden">
         {navigation
           .filter(({ href }) =>
             [
               "/dashboard",
               "/calendar",
               "/todos",
-              "/friends",
+              "/assistant",
               "/profile",
             ].includes(href),
           )

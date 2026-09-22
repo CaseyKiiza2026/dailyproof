@@ -35,13 +35,13 @@ export function AssistantPanel() {
   }
   return (
     <div className="space-y-5">
-      <h1 className="text-2xl font-bold">DailyProof assistant</h1>
+      <h1 className="text-2xl font-bold">Assistant</h1>
       <p className="text-sm leading-6 text-white/60">
         Plan your work with Gemini. Requests send relevant task, habit and
         reminder information to Gemini. You review changes before applying them.
         Times use {timeZone}.
       </p>
-      <div className="grid gap-2 sm:grid-cols-2">
+      <div className="assistant-layout"><section className="assistant-conversation proof-panel"><div className="assistant-suggestions">
         {[
           "Plan my week",
           "What should I do next?",
@@ -57,8 +57,9 @@ export function AssistantPanel() {
           </button>
         ))}
       </div>
+      {result && <div className="assistant-reply"><p className="whitespace-pre-wrap break-words text-sm leading-6">{result.reply}</p></div>}
       <form
-        className="proof-panel space-y-3 p-4"
+        className="space-y-3"
         onSubmit={(e) => {
           e.preventDefault();
           void ask();
@@ -69,12 +70,12 @@ export function AssistantPanel() {
           <textarea
             required
             maxLength={4000}
-            rows={4}
+            rows={3}
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
           />
         </label>
-        <button disabled={busy} className="proof-action">
+        <button disabled={busy} className="proof-action proof-primary">
           {busy ? "Working…" : "Ask assistant"}
         </button>
       </form>
@@ -83,8 +84,9 @@ export function AssistantPanel() {
           {error}
         </p>
       )}
+      </section>
       {result && (
-        <section aria-busy={busy} className="proof-panel space-y-4 p-4">
+        <aside aria-busy={busy} className="proof-panel space-y-4 p-4">
           <p role="status" className="min-h-5 text-sm text-white/55">
             {!current
               ? busy
@@ -92,9 +94,7 @@ export function AssistantPanel() {
                 : "Previous response. Submit again to get a new plan."
               : ""}
           </p>
-          <p className="whitespace-pre-wrap break-words text-sm leading-6">
-            {result.reply}
-          </p>
+          <h2 className="text-lg">Proposed changes</h2>
           {result.actions.map((a, i) => (
             <article
               key={i}
@@ -161,8 +161,10 @@ export function AssistantPanel() {
               Changes applied.
             </p>
           )}
-        </section>
+        </aside>
       )}
+      {!result && <aside className="proof-panel p-6"><h2 className="text-lg">Proposed changes</h2><p className="mt-3 text-sm text-white/55">Your suggestions will appear here for review.</p></aside>}
+      </div>
     </div>
   );
 }
