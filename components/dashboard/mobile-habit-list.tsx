@@ -67,10 +67,10 @@ export function MobileHabitList({ presentation = "list", dashboard, habits, onEd
     const days = Array.from({ length: daysInMonth }, (_, index) => index + 1);
     const columns = { gridTemplateColumns: `160px repeat(${daysInMonth}, 44px)` };
     return <div className="min-w-0 sm:hidden" aria-label="Mobile habit grid">
-      <p className="border-b border-white/[0.07] px-4 py-3 text-sm font-semibold text-white/80">{dateLabel}</p>
+
       <div ref={scroller} className="overflow-x-auto [scrollbar-width:thin]" tabIndex={0} aria-label="Habit history, scroll horizontally for dates">
         <div className="grid w-max items-center border-b border-white/[0.07]" style={columns}>
-          <span className="sticky left-0 z-10 self-stretch bg-[#0a0d0b] px-3 py-4 text-sm text-white/55">Habit</span>
+          <span className="sticky left-0 z-10 self-stretch bg-proof-panel px-3 py-4 text-sm text-white/55">Habit</span>
           {days.map((day) => <button key={day} ref={day === selectedDay ? selectedButton : undefined}
             aria-label={new Date(viewYear, viewMonth, day).toLocaleDateString("en", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
             aria-pressed={day === selectedDay} onClick={() => setSelectedDay(day)}
@@ -78,12 +78,12 @@ export function MobileHabitList({ presentation = "list", dashboard, habits, onEd
             <span className="text-xs">{new Date(viewYear, viewMonth, day).toLocaleDateString("en", { weekday: "short" })}</span><span className="font-bold">{day}</span>
           </button>)}
         </div>
-        {loading && habits.length === 0 && <div role="status" aria-label="Loading habits">{Array.from({length: 5}, (_, row) => <div key={row} className="grid min-h-[88px] w-max items-center border-b border-white/[0.07]" style={columns}><div className="sticky left-0 z-10 h-full space-y-3 bg-[#0a0d0b] px-3 py-5"><div className="h-4 w-28 rounded bg-white/10"/><div className="h-3 w-20 rounded bg-white/5"/></div>{days.map(day => <span key={day} className="mx-auto h-6 w-6 rounded-md bg-white/5"/>)}</div>)}</div>}
+        {loading && habits.length === 0 && <div role="status" aria-label="Loading habits">{Array.from({length: 5}, (_, row) => <div key={row} className="grid min-h-[88px] w-max items-center border-b border-white/[0.07]" style={columns}><div className="sticky left-0 z-10 h-full space-y-3 bg-proof-panel px-3 py-5"><div className="h-4 w-28 rounded bg-white/10"/><div className="h-3 w-20 rounded bg-white/5"/></div>{days.map(day => <span key={day} className="mx-auto h-6 w-6 rounded-md bg-white/5"/>)}</div>)}</div>}
         {habits.map((habit) => <div key={habit.id} className="grid w-max items-center border-b border-white/[0.07]" style={columns}>
-          <div className="sticky left-0 z-10 self-stretch border-r border-white/[0.07] bg-[#0a0d0b] px-3 py-3">
+          <div className="sticky left-0 z-10 self-stretch border-r border-white/[0.07] bg-proof-panel px-3 py-3">
             <button onClick={() => onEdit(habit)} aria-label={`Edit ${habit.name}`} className="proof-focus min-h-11 w-full text-left">
               <span className="block break-words text-sm font-bold leading-5 text-white/90 [overflow-wrap:anywhere]">{habit.name}{habit.isCore && <Star size={11} fill="currentColor" aria-label="Core habit" className="ml-1 inline text-proof-amber" />}</span>
-              <span className="mt-1 block text-xs leading-5 text-white/50">{habit.category}</span>
+
             </button>
           </div>
           {days.map((day) => {
@@ -110,7 +110,7 @@ export function MobileHabitList({ presentation = "list", dashboard, habits, onEd
       {!loading && habits.length === 0 && <p className="p-4 text-sm text-white/55">No habits match the selected filters.</p>}
       <div className="flex flex-wrap gap-x-3 gap-y-2 px-4 py-3 text-xs text-white/55">
         {Object.entries(statuses).map(([value, { label, icon: Icon }]) => <span key={value} className="inline-flex items-center gap-1"><Icon size={14} />{label}</span>)}
-        <span>Tap a habit name to edit. More options in List.</span>
+
       </div>
     </div>;
   }
@@ -157,7 +157,7 @@ export function MobileHabitList({ presentation = "list", dashboard, habits, onEd
             <select aria-label={`Status for ${habit.name}, ${dateLabel}`} value={status} disabled={pending}
               onChange={(event) => void dashboard.updateCell(habit.id, selectedDay, event.target.value as HabitStatus)}
               className="proof-focus h-11 w-full appearance-none rounded-xl bg-transparent pl-10 pr-10 text-base font-semibold disabled:opacity-60">
-              {Object.entries(statuses).map(([value, option]) => <option key={value} value={value} className="bg-[#0a0d0b] text-white">{option.label}</option>)}
+              {Object.entries(statuses).map(([value, option]) => <option key={value} value={value} className="bg-proof-panel text-white">{option.label}</option>)}
             </select>
             <ChevronDown size={17} className="pointer-events-none absolute right-3" />
             {pending && <span role="status" className="sr-only">Saving status</span>}

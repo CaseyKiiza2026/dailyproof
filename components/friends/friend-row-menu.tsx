@@ -36,7 +36,7 @@ export function FriendRowMenu({ onRemove, label = "Unfriend" }: FriendRowMenuPro
       </button>
 
       {open && (
-        <div className="absolute right-0 top-12 sm:top-8 z-20 w-36 overflow-hidden rounded-xl border border-white/[0.09] bg-[#0d110f] shadow-proof-card">
+        <div className="absolute right-0 top-12 sm:top-8 z-20 w-36 overflow-hidden rounded-xl border border-white/[0.09] bg-proof-panel2 shadow-proof-card">
           <button
             type="button"
             onClick={() => {

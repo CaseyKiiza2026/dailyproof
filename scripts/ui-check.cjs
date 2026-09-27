@@ -6,6 +6,11 @@ const fs = require("node:fs"),
 const { chromium } = require("@playwright/test");
 const server = http.createServer((req, res) => {
   const name = new URL(req.url, "http://localhost").pathname;
+  if (name === "/fonts/manrope.ttf") {
+    res.setHeader("Content-Type", "font/ttf");
+    res.end(fs.readFileSync(path.join(process.cwd(), "public/fonts/manrope.ttf")));
+    return;
+  }
   if (
     !["/", "/index.html", "/bundle.js", "/bundle.css", "/styles.css"].includes(
       name,
@@ -33,6 +38,7 @@ const server = http.createServer((req, res) => {
   await new Promise((r) => server.listen(0, "127.0.0.1", r));
   const browser = await chromium.launch();
   try {
+    for (const theme of ["dark", "light"])
     for (const width of [375, 390, 430, 1280])
       for (const route of [
         "dashboard",
@@ -50,6 +56,8 @@ const server = http.createServer((req, res) => {
           "http://127.0.0.1:" + server.address().port + "/?page=" + route,
         );
         await page.waitForTimeout(500);
+        await page.evaluate((theme) => { document.documentElement.dataset.theme = theme; }, theme);
+        await page.evaluate(() => document.fonts.ready);
         assert.equal(
           await page.evaluate(() => document.compatMode),
           "CSS1Compat",
@@ -169,13 +177,13 @@ const server = http.createServer((req, res) => {
         await page.screenshot({
           path: path.join(
             path.join(process.cwd(), "out/mobile-check"),
-            "integration-" + route + "-" + width + ".png",
+            "integration-" + route + "-" + width + "-" + theme + ".png",
           ),
           fullPage: true,
         });
         await page.close();
       }
-    console.log("20 route/viewport checks passed: 375, 390, 430, 1280px");
+    console.log("40 route/viewport/theme checks passed: 375, 390, 430, 1280px, dark and light");
   } finally {
     await browser.close();
     server.close();

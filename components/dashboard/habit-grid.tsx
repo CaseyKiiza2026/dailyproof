@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { Filter, Sparkles, Check, X, Bed, Plane, Eraser, Flame, Trophy, Plus, Star } from "lucide-react";
+import { Filter, Sparkles, Check, X, Bed, Plane, Eraser, Plus, Star } from "lucide-react";
 import { HabitInput } from "@/lib/actions/habits";
 import { Habit, HabitStatus, HABIT_CATEGORIES } from "@/lib/types";
 import { HabitStats } from "@/lib/stats";
@@ -14,11 +14,11 @@ import { MobileHabitList } from "@/components/dashboard/mobile-habit-list";
 import { ProofPanel } from "@/components/proofs/proof-panel";
 
 const statusClasses: Record<HabitStatus, string> = {
-  complete: "border-proof-green/70 bg-proof-green shadow-[0_0_16px_rgba(37,216,111,.45),inset_0_1px_0_rgba(255,255,255,.35)]",
-  missed: "border-proof-red/70 bg-proof-red shadow-[0_0_16px_rgba(255,85,79,.45),inset_0_1px_0_rgba(255,255,255,.35)]",
-  rest: "border-proof-amber/70 bg-proof-amber shadow-[0_0_16px_rgba(245,158,11,.45),inset_0_1px_0_rgba(255,255,255,.35)]",
-  vacation: "border-proof-violet/70 bg-proof-violet shadow-[0_0_16px_rgba(139,92,246,.45),inset_0_1px_0_rgba(255,255,255,.35)]",
-  empty: "border-white/[0.07] bg-white/[0.045] hover:bg-white/[0.08] hover:border-white/[0.14]"
+  complete: "border-proof-green/70 bg-proof-green",
+  missed: "border-proof-red/70 bg-proof-red",
+  rest: "border-proof-amber/70 bg-proof-amber",
+  vacation: "border-proof-violet/70 bg-proof-violet",
+  empty: "border-white/15 bg-white/5 text-white/60 hover:bg-white/10"
 };
 
 // Distinct from both "empty" (a real cell awaiting a log) and "missed" (a red
@@ -31,7 +31,7 @@ const statusIcons: Record<HabitStatus, typeof Check | null> = {
   missed: X,
   rest: Bed,
   vacation: Plane,
-  empty: null
+  empty: Plus
 };
 
 const STATUS_OPTIONS: { status: HabitStatus; label: string; icon: typeof Check }[] = [
@@ -61,7 +61,7 @@ function subscribeMobileView(callback: () => void) {
 }
 const defaultMobileView = () => "grid" as const;
 
-export function HabitGrid({ dashboard, stats, statsReady = true }: HabitGridProps) {
+export function HabitGrid({ dashboard }: HabitGridProps) {
   const savedView = useSyncExternalStore(subscribeMobileView, readMobileView, defaultMobileView);
   const [viewOverride, setViewOverride] = useState<"grid" | "list" | null>(null);
   const mobileView = viewOverride ?? savedView;
@@ -89,7 +89,14 @@ export function HabitGrid({ dashboard, stats, statsReady = true }: HabitGridProp
     handleSeedStarterHabits
   } = dashboard;
 
-  const monthDays = useMemo(() => Array.from({ length: daysInMonth }, (_, index) => index + 1), [daysInMonth]);
+  const [range, setRange] = useState<"week" | "month">("week");
+  const monthDays = useMemo(() => {
+    const all = Array.from({ length: daysInMonth }, (_, index) => index + 1);
+    if (range === "month") return all;
+    const weekday = (new Date(viewYear, viewMonth, selectedDay).getDay() + 6) % 7;
+    const start = selectedDay - weekday;
+    return all.filter(day => day >= start && day < start + 7);
+  }, [daysInMonth, range, viewYear, viewMonth, selectedDay]);
 
   const [modal, setModal] = useState<ModalState | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Habit | null>(null);
@@ -155,21 +162,18 @@ export function HabitGrid({ dashboard, stats, statsReady = true }: HabitGridProp
   const showEmptyState = !loading && habits.length === 0;
   const showFilteredEmptyState = !loading && habits.length > 0 && visibleHabits.length === 0;
 
-  const gridTemplateColumns = `170px repeat(${daysInMonth}, 22px)`;
+  const gridTemplateColumns = range === "week" ? `minmax(170px, 2.5fr) repeat(${monthDays.length}, minmax(44px, 1fr))` : `170px repeat(${daysInMonth}, 30px)`;
 
   return (
-    <section className="proof-panel sm:overflow-hidden">
+    <section id="habits" className="habit-card proof-panel sm:overflow-hidden" data-range={range}>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.07] px-4 py-3 sm:px-5 sm:py-4">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-base font-bold"><span className="sm:hidden">Habits</span><span className="hidden sm:inline">Habit Grid</span></h2>
-            <span className="hidden rounded-full bg-proof-green/10 px-2 py-0.5 text-[10px] font-bold text-proof-green sm:inline">{statsReady ? `${stats.completion}% completion` : "Progress unavailable"}</span>
-            <span className="hidden items-center gap-1 rounded-full bg-white/[0.05] px-2 py-0.5 text-[10px] font-bold text-white/60 sm:inline-flex"><Flame size={11} className="text-proof-amber" />{statsReady ? `${stats.currentStreak}d streak` : "\u2014"}</span>
-            <span className="hidden items-center gap-1 rounded-full bg-white/[0.05] px-2 py-0.5 text-[10px] font-bold text-white/60 sm:inline-flex"><Trophy size={11} className="text-proof-violet" />{statsReady ? `Best ${stats.bestStreak}d` : "\u2014"}</span>
+            <h2 className="text-base font-bold"><span className="sm:hidden">Habits</span><span className="hidden sm:inline">{range === "week" ? "Weekly habits" : "Habit history"}</span></h2>
           </div>
-          <p className="mt-1 hidden text-xs text-white/35 sm:block">Tap a scheduled cell to set its status.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <button className="proof-action hidden sm:inline-flex" onClick={() => setRange(range === "week" ? "month" : "week")}>{range === "week" ? "Month" : "Week"}</button>
           <button
             onClick={() => setModal({ mode: "create" })}
             aria-label="Add habit"
@@ -194,7 +198,7 @@ export function HabitGrid({ dashboard, stats, statsReady = true }: HabitGridProp
               <Filter size={15} />
             </button>
             {filterOpen && (
-              <div className="absolute right-0 top-12 z-20 w-64 overflow-hidden rounded-xl border border-white/[0.09] bg-[#0d110f] p-2 shadow-proof-card sm:top-11 sm:w-56">
+              <div className="absolute right-0 top-12 z-20 w-64 overflow-hidden rounded-xl border border-white/[0.09] bg-proof-panel2 p-2 shadow-proof-card sm:top-11 sm:w-56">
                 <p className="px-2 py-1 text-[10px] font-bold uppercase tracking-[.1em] text-white/35">Filter by category</p>
                 {presentCategories.length === 0 && <p className="px-2 py-2 text-xs text-white/40">No categories yet.</p>}
                 {presentCategories.map((category) => {
@@ -240,7 +244,7 @@ export function HabitGrid({ dashboard, stats, statsReady = true }: HabitGridProp
         onDelete={setDeleteTarget} onCreate={() => setModal({ mode: "create" })} />
 
       <div className="hidden overflow-x-auto sm:block">
-        <div style={{ minWidth: 170 + daysInMonth * 30 }}>
+        <div style={{ minWidth: range === "week" ? 540 : 170 + daysInMonth * 38 }}>
           {showEmptyState ? (
             <div className="flex flex-col items-center gap-4 px-6 py-14 text-center">
               <div className="grid h-12 w-12 place-items-center rounded-2xl border border-white/[0.08] bg-white/[0.03] text-white/40">
@@ -272,14 +276,14 @@ export function HabitGrid({ dashboard, stats, statsReady = true }: HabitGridProp
                 className="grid items-center gap-x-2 border-b border-white/[0.06] px-4 py-2.5 text-[10px] text-white/32 sm:px-5"
                 style={{ gridTemplateColumns }}
               >
-                <span className="sticky left-0 z-10 bg-[#0a0d0b] uppercase tracking-[.12em]">Habit</span>
+                <span className="sticky left-0 z-10 bg-proof-panel uppercase tracking-[.12em]">Habit</span>
                 {monthDays.map((day) => (
                   <button
                     key={day}
                     onClick={() => setSelectedDay(day)}
-                    className={`grid h-6 w-6 place-items-center rounded-full transition active:scale-90 ${selectedDay === day ? "bg-proof-green font-black text-black shadow-[0_0_20px_rgba(37,216,111,.24)]" : "hover:bg-white/[0.08] hover:text-white/80"}`}
+                    className={`proof-focus grid min-h-11 place-items-center rounded-lg transition active:scale-90 ${selectedDay === day ? "text-proof-green font-semibold" : "hover:bg-white/[0.08] hover:text-white/80"}`}
                   >
-                    {day}
+                    <span>{new Date(viewYear, viewMonth, day).toLocaleDateString("en", {weekday: "short"})}</span><span>{day}</span>
                   </button>
                 ))}
               </div>
@@ -304,10 +308,9 @@ export function HabitGrid({ dashboard, stats, statsReady = true }: HabitGridProp
                     className="group grid items-center gap-x-2 border-b border-white/[0.055] px-4 py-3 last:border-0 sm:px-5"
                     style={{ gridTemplateColumns }}
                   >
-                    <div className="sticky left-0 z-10 flex min-w-0 items-center gap-2 bg-[#0a0d0b]/95 pr-2 backdrop-blur-sm">
-                      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-white/[0.08] bg-white/[0.025] text-[10px] font-bold text-white/70">{habit.icon}</span>
+                    <div className="sticky left-0 z-10 flex min-w-0 items-center gap-2 bg-proof-panel/95 pr-2 backdrop-blur-sm">
                       <div className="min-w-0 flex-1">
-                        <p className="flex items-center gap-1 truncate text-xs font-bold text-white/90">
+                        <p title={habit.name} className="flex items-center gap-1 break-words text-sm font-medium text-white/90">
                           {habit.name}
                           {habit.isCore && (
                             <span title="Core habit" className="inline-flex shrink-0 items-center text-proof-amber">
@@ -315,7 +318,6 @@ export function HabitGrid({ dashboard, stats, statsReady = true }: HabitGridProp
                             </span>
                           )}
                         </p>
-                        <p className="truncate text-[10px] text-white/28">{habit.subtitle}</p>
                       </div>
                       <HabitRowMenu onEdit={() => setModal({ mode: "edit", habit })} onDelete={() => setDeleteTarget(habit)} />
                     </div>
@@ -352,10 +354,10 @@ export function HabitGrid({ dashboard, stats, statsReady = true }: HabitGridProp
                             onClick={() => setActiveCell(isOpen ? null : cellKey)}
                             className={`proof-grid-cell proof-focus grid place-items-center transition active:scale-90 disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100 ${statusClasses[status]} ${selectedDay === day ? "ring-2 ring-white/25 ring-offset-2 ring-offset-[#0a0d0b]" : ""}`}
                           >
-                            {StatusIcon && <StatusIcon size={13} strokeWidth={3} className="text-white" />}
+                            {status === "empty" && !canEdit ? <span aria-hidden="true">·</span> : StatusIcon && <StatusIcon size={13} strokeWidth={3} />}
                           </button>
                           {isOpen && canEdit && (
-                            <div className="absolute left-1/2 top-full z-30 mt-1 w-32 -translate-x-1/2 overflow-hidden rounded-xl border border-white/[0.09] bg-[#0d110f] p-1 shadow-proof-card">
+                            <div className="absolute left-1/2 top-full z-30 mt-1 w-32 -translate-x-1/2 overflow-hidden rounded-xl border border-white/[0.09] bg-proof-panel2 p-1 shadow-proof-card">
                               {STATUS_OPTIONS.map(({ status: optionStatus, label, icon: OptionIcon }) => (
                                 <button
                                   key={optionStatus}

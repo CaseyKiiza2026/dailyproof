@@ -104,9 +104,10 @@ function OwnerProofPanel({ target }: { target: ProofTarget }) {
     }
   }
   return (
-    <div className="space-y-3">
+    <div className="evidence-panel space-y-3">
       <button
         className="proof-action"
+        aria-expanded={open}
         onClick={() => {
           setOpen(!open);
           if (!open && proofs === null) void refresh();
