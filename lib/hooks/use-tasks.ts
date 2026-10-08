@@ -56,6 +56,11 @@ function useTaskState(enabled: boolean) {
     s.pending = pending;
     return pending;
   }, []);
+  const invalidate = useCallback(() => {
+    state.current.generation++;
+    state.current.pending = null;
+    return refresh();
+  }, [refresh]);
   useEffect(() => {
     if (!enabled) return;
     const s = state.current;
@@ -130,6 +135,7 @@ function useTaskState(enabled: boolean) {
     error: mutationError || error,
     busy,
     refresh,
+    invalidate,
     save,
     remove,
     complete,

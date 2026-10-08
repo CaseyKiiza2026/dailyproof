@@ -1,7 +1,13 @@
 import { TaskInput, validateTask } from "@/lib/tasks";
 import { ReminderInput, validateReminder } from "@/lib/notifications";
+import { CommitmentInput, validateCommitment } from "@/lib/calendar";
 export type WorkAction = (
   | { tool: "create_task" | "update_task"; id: string; values: TaskInput }
+  | {
+      tool: "create_commitment" | "update_commitment";
+      id: string;
+      values: CommitmentInput;
+    }
   | {
       tool: "create_reminder" | "update_reminder";
       id: string;
@@ -33,6 +39,11 @@ export function validateWorkAction(action: WorkAction, ai = false) {
     }
     return { ...action, values: task };
   }
+  if (
+    action.tool === "create_commitment" ||
+    action.tool === "update_commitment"
+  )
+    return { ...action, values: validateCommitment(action.values) };
   if (action.tool === "create_reminder" || action.tool === "update_reminder")
     return { ...action, values: validateReminder(action.values) };
   if (action.tool !== "cancel_reminder") throw new Error("Unsupported action.");

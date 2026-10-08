@@ -47,12 +47,20 @@ export function NotificationCenter() {
   useEffect(() => {
     void refreshHistory();
     void refreshReminders();
+    const onApplied = () => {
+      void refreshReminders();
+      void refreshChoices();
+    };
+    window.addEventListener("dailyproof:work-applied", onApplied);
     const timer = setInterval(() => {
       void refreshHistory();
       void refreshReminders();
     }, 60000);
-    return () => clearInterval(timer);
-  }, [refreshHistory, refreshReminders]);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("dailyproof:work-applied", onApplied);
+    };
+  }, [refreshHistory, refreshReminders, refreshChoices]);
   const editorOpen = editing !== null;
   useEffect(() => {
     if (editorOpen) void refreshChoices();

@@ -115,6 +115,8 @@ export function MobileHabitList({ presentation = "list", dashboard, habits, onEd
     </div>;
   }
 
+  const scheduledHabits = habits.filter((habit) => dashboard.isScheduledDate(habit.id, selectedDay));
+
   return <div className="min-w-0 sm:hidden">
     <div className="border-b border-white/[0.07] py-3">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 px-4">
@@ -139,7 +141,8 @@ export function MobileHabitList({ presentation = "list", dashboard, habits, onEd
 
     {loading ? <div aria-label="Loading habits" className="space-y-5 p-4">{[0, 1, 2].map((i) => <div key={i} className="h-28 animate-pulse rounded-xl bg-white/[0.04]" />)}</div>
       : habits.length === 0 ? <p className="px-4 py-8 text-center text-sm text-white/55">No habits match the selected filters.</p>
-      : habits.map((habit) => {
+      : scheduledHabits.length === 0 ? <p className="px-4 py-8 text-center text-sm text-white/55">No habits scheduled for this day.</p>
+      : scheduledHabits.map((habit) => {
         const status = habit.logsByDate[dateKey] ?? "empty";
         const scheduled = dashboard.isScheduledDate(habit.id, selectedDay);
         const pending = pendingCells.has(`${habit.id}:${dateKey}`);
