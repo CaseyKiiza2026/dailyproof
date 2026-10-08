@@ -7,6 +7,7 @@ import { calendarFreeSlots } from "@/lib/work-schedule";
 import { activityContext, HabitContextLog } from "@/lib/ai-context";
 import { geminiJson } from "@/lib/gemini";
 export async function readAiTool(name: string, args: Record<string, unknown>) {
+  if (name === "get_progress" || name === "summarize_weekly_performance") name = "get_week_stats";
   const { db, user, timeZone } = await requireUser();
   const today = dateKeyInTimeZone(new Date(), timeZone);
   if (name === "get_reminders") return getReminders();

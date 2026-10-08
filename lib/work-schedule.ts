@@ -81,7 +81,15 @@ export function validateProposedSchedule(
   );
   const ids = new Set<string>();
   for (const action of taskActions) {
-    validateWorkAction(action, true);
+    const original = calendar.tasks.find((t) => t.id === action.id);
+    const scheduling =
+      action.tool === "create_task" ||
+      !original ||
+      original.scheduled_start !== action.values.scheduled_start ||
+      original.scheduled_end !== action.values.scheduled_end ||
+      (original.status === "cancelled" && action.values.status !== "cancelled");
+    // Completing or editing existing work is not a new scheduling request.
+    validateWorkAction(action, scheduling);
     if (ids.has(action.id))
       throw new Error("Propose only one final change per task.");
     ids.add(action.id);
@@ -98,6 +106,22 @@ export function validateProposedSchedule(
   }
   const finalCalendar: ScheduleCalendar = {
     ...calendar,
+    commitments: [
+      ...calendar.commitments.filter(
+        (c) =>
+          !actions.some((a) => a.tool === "update_commitment" && a.id === c.id),
+      ),
+      ...actions
+        .filter(
+          (
+            a,
+          ): a is Extract<
+            WorkAction,
+            { tool: "create_commitment" | "update_commitment" }
+          > => a.tool === "create_commitment" || a.tool === "update_commitment",
+        )
+        .map((a) => ({ ...a.values, id: a.id, user_id: "" })),
+    ],
     tasks: [
       ...calendar.tasks.filter((t) => !ids.has(t.id)),
       ...taskActions.map((a) => ({
@@ -108,6 +132,14 @@ export function validateProposedSchedule(
   };
   for (const action of taskActions) {
     const task = action.values;
+    const original = calendar.tasks.find((t) => t.id === action.id);
+    if (
+      original &&
+      original.scheduled_start === task.scheduled_start &&
+      original.scheduled_end === task.scheduled_end &&
+      !(original.status === "cancelled" && task.status !== "cancelled")
+    )
+      continue;
     if (
       !task.scheduled_start ||
       !task.scheduled_end ||

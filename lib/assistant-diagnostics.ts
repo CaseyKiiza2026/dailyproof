@@ -141,7 +141,18 @@ export async function diagnoseAssistant<T extends object>(
         ok: false as const,
         correlationId: context.correlationId,
         error:
-          "DailyProof Assistant couldn't complete that request. Reference: " +
+          (safeError(error).geminiHttpStatus === 429
+            ? "The assistant provider is rate-limited. Please retry later."
+            : context.failedStage === "quota"
+              ? "Assistant request limit reached or unavailable. Please try again later."
+              : context.failedStage === "scheduling_validation"
+                ? "The proposal has a conflicting or invalid schedule. Try another time."
+                : context.failedStage === "apply_plan"
+                  ? "Could not confirm this plan was applied. Retry safely, or request a fresh proposal if an item changed, the plan expired or its schedule conflicts."
+                  : context.failedStage === "normalizeAction_validateWorkAction"
+                    ? "The proposal contains invalid fields, an unavailable item or an invalid date. Clarify the item or time and try again."
+                    : "DailyProof Assistant couldn't complete that request.") +
+          " Reference: " +
           context.correlationId,
       };
     }

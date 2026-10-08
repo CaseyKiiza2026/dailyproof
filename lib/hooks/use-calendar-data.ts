@@ -22,13 +22,17 @@ function useCalendarState() {
     return request;
   }, []);
   const remote = useRemoteData(read, "Unable to load calendar.");
+  const invalidate = async () => {
+    pending.current = null;
+    await remote.refresh();
+  };
   const mutate = async (write: () => Promise<unknown>) =>
     remote.mutate(async () => {
       // An old read must not be reused for the post-write refresh.
       pending.current = null;
       await write();
     });
-  return { ...remote, mutate };
+  return { ...remote, mutate, invalidate };
 }
 const CalendarContext = createContext<ReturnType<
   typeof useCalendarState
