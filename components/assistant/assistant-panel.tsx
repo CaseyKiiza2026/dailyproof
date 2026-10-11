@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useTasks } from "@/lib/hooks/use-tasks";
 import { useCalendarData } from "@/lib/hooks/use-calendar-data";
 import {
-  askAssistant,
+  runAssistant,
   approveAssistantPlan,
   AssistantReply,
 } from "@/lib/actions/assistant";
@@ -15,9 +15,8 @@ export function AssistantPanel() {
   const tasks = useTasks();
   const calendar = useCalendarData();
   const applying = useRef(false);
-  const previous = useRef<{ question: string; reply: string } | undefined>(
-    undefined,
-  );
+  const request = useRef<{ question: string; id: string } | null>(null);
+  const previous = useRef<{ question: string; reply: string }[]>([]);
   const { timeZone } = useUserClock();
   const [question, setQuestion] = useState(""),
     [result, setResult] = useState<AssistantReply | null>(null),
@@ -32,13 +31,26 @@ export function AssistantPanel() {
     setCurrent(false);
     setApplied(false);
     try {
-      const response = await askAssistant(question, previous.current);
+      if (!request.current || request.current.question !== question)
+        request.current = { question, id: crypto.randomUUID() };
+      const response = await runAssistant(
+        question,
+        request.current.id,
+        previous.current,
+      );
       if (response.ok) {
         setResult(response);
         setCurrent(true);
-        previous.current = response.planId
-          ? undefined
-          : { question, reply: response.reply };
+        setApplied(Boolean(response.applied));
+        previous.current = [
+          ...previous.current,
+          { question, reply: response.reply },
+        ].slice(-8);
+        if (response.applied || response.savedCount) {
+          await Promise.all([tasks.invalidate(), calendar.invalidate()]);
+          window.dispatchEvent(new Event("dailyproof:work-applied"));
+          router.refresh();
+        }
       } else setError(response.error);
     } catch (e) {
       setError((e as Error).message);
@@ -51,8 +63,9 @@ export function AssistantPanel() {
       <h1 className="text-2xl font-bold">Assistant</h1>
       <p className="text-sm leading-6 text-white/60">
         Plan your work with Gemini. Requests send relevant task, habit and
-        reminder information to Gemini. You review changes before applying them.
-        Times use {timeZone}.
+        reminder information to Gemini. Clear requests run automatically; broad
+        deletions require confirmation. Uploads and privacy settings use their
+        app controls. Times use {timeZone}.
       </p>
       <div className="assistant-layout">
         <section className="assistant-conversation proof-panel">
@@ -115,7 +128,11 @@ export function AssistantPanel() {
                   : "Previous response. Submit again to get a new plan."
                 : ""}
             </p>
-            <h2 className="text-lg">Proposed changes</h2>
+            <h2 className="text-lg">
+              {result.applied || (result.savedCount && !result.planId)
+                ? "Saved changes"
+                : "Proposed changes"}
+            </h2>
             {result.actions.map((a, i) => (
               <article
                 key={i}
@@ -167,6 +184,13 @@ export function AssistantPanel() {
                       );
                       if (outcome?.ok === false) throw new Error(outcome.error);
                       setApplied(true);
+                      previous.current = [
+                        ...previous.current,
+                        {
+                          question,
+                          reply: "The reviewed changes were confirmed saved.",
+                        },
+                      ].slice(-8);
                       await Promise.all([
                         tasks.invalidate(),
                         calendar.invalidate(),

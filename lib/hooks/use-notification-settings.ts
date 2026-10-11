@@ -19,24 +19,31 @@ export function useNotificationSettings() {
   const load = useCallback(() => {
     if (writing.current) return;
     const request = ++generation.current.value;
-    return getNotificationSettings().then(value => {
-      if (live.current && request === generation.current.value) {
-        setSaved(value);
-        setDraft(value);
-        setError(null);
-      }
-    }).catch(() => {
-      if (live.current && request === generation.current.value)
-        setError("Unable to load notification settings.");
-    });
+    return getNotificationSettings()
+      .then((value) => {
+        if (live.current && request === generation.current.value) {
+          setSaved(value);
+          setDraft(value);
+          setError(null);
+        }
+      })
+      .catch(() => {
+        if (live.current && request === generation.current.value)
+          setError("Unable to load notification settings.");
+      });
   }, []);
   useEffect(() => {
     live.current = true;
     const counter = generation.current;
     void load();
+    const refresh = () => {
+      void load();
+    };
+    window.addEventListener("dailyproof:work-applied", refresh);
     return () => {
       live.current = false;
       counter.value++;
+      window.removeEventListener("dailyproof:work-applied", refresh);
     };
   }, [load]);
 

@@ -1,6 +1,50 @@
 import { localDateTimeToUtc } from "@/lib/timezone";
 // One registry drives both the model contract and server-side argument checks.
 const text = { type: "string" };
+export type AssistantConversation =
+  { question: string; reply: string } | { question: string; reply: string }[];
+export function assistantConversation(previous?: AssistantConversation) {
+  const turns = Array.isArray(previous)
+    ? previous.slice(-8)
+    : previous
+      ? [previous]
+      : [];
+  return turns
+    .filter(
+      (turn) =>
+        turn &&
+        typeof turn.question === "string" &&
+        typeof turn.reply === "string",
+    )
+    .map((turn) => ({
+      question: turn.question.slice(0, 4000),
+      reply: turn.reply.slice(0, 4000),
+    }));
+}
+// Account identifiers, storage locations and push identities are unnecessary
+// for reasoning. Keep them out of every provider context, including tool reads.
+export function assistantData(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(assistantData);
+  if (value && typeof value === "object")
+    return Object.fromEntries(
+      Object.entries(value)
+        .filter(
+          ([key]) =>
+            ![
+              "user_id",
+              "requester_id",
+              "addressee_id",
+              "from_user_id",
+              "to_user_id",
+              "push_alias",
+              "storage_path",
+              "error",
+            ].includes(key),
+        )
+        .map(([key, item]) => [key, assistantData(item)]),
+    );
+  return value;
+}
 export function resolveAssistantDates(
   args: Record<string, unknown>,
   timeZone: string,
@@ -18,8 +62,19 @@ export function resolveAssistantDates(
   ]) {
     const value = result[key];
     if (typeof value !== "string") continue;
-    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value))
-      result[key] = localDateTimeToUtc(value, timeZone);
+    const local =
+      /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})(?::([0-5]\d)(?:\.(\d{1,3}))?)?$/.exec(
+        value.trim(),
+      );
+    if (local) {
+      const at = localDateTimeToUtc(local[1], timeZone);
+      result[key] = new Date(
+        Date.parse(at!) +
+          Number(local[2] ?? 0) * 1000 +
+          Number((local[3] ?? "").padEnd(3, "0")),
+      ).toISOString();
+    } else if (key === "due_at" && /^\d{4}-\d{2}-\d{2}$/.test(value))
+      result[key] = localDateTimeToUtc(`${value}T23:59`, timeZone);
     else if (
       /(Z|[+-]\d{2}:\d{2})$/.test(value) &&
       Number.isFinite(Date.parse(value))
@@ -61,12 +116,84 @@ const reminderFields = {
   habit_id: identity,
   only_if_incomplete: { type: "boolean" },
 };
+const habitFields = {
+  name: text,
+  category: text,
+  is_core: { type: "boolean" },
+  scheduled_days: {
+    type: "array",
+    items: { type: "integer", minimum: 1, maximum: 7 },
+    minItems: 1,
+    maxItems: 7,
+  },
+  scheduled_time: { type: ["string", "null"] },
+  duration_minutes: { type: ["integer", "null"], minimum: 5, maximum: 720 },
+};
 type Definition = {
   properties: Record<string, unknown>;
   required: string[];
   existing?: boolean;
 };
 export const assistantWrites: Record<string, Definition> = {
+  delete_all_habits: { properties: {}, required: [] },
+  seed_starter_habits: { properties: {}, required: [] },
+  create_habit: { properties: habitFields, required: ["name"] },
+  update_habit: { properties: habitFields, required: [], existing: true },
+  set_habit_time: {
+    properties: {
+      scheduled_time: habitFields.scheduled_time,
+      duration_minutes: habitFields.duration_minutes,
+    },
+    required: ["scheduled_time", "duration_minutes"],
+    existing: true,
+  },
+  log_habit: {
+    properties: {
+      log_date: text,
+      status: {
+        type: "string",
+        enum: ["complete", "missed", "rest", "vacation", "empty"],
+      },
+    },
+    required: ["log_date", "status"],
+    existing: true,
+  },
+  delete_habit: { properties: {}, required: [], existing: true },
+  delete_task: { properties: {}, required: [], existing: true },
+  reopen_task: { properties: {}, required: [], existing: true },
+  delete_commitment: { properties: {}, required: [], existing: true },
+  add_proof: {
+    properties: {
+      task_id: identity,
+      habit_id: identity,
+      log_date: text,
+      type: { type: "string", enum: ["note", "link"] },
+      content: text,
+    },
+    required: ["type", "content"],
+  },
+  delete_proof: { properties: {}, required: [], existing: true },
+  send_friend_request: {
+    properties: { username: text },
+    required: ["username"],
+  },
+  respond_friend_request: {
+    properties: { accept: { type: "boolean" } },
+    required: ["accept"],
+    existing: true,
+  },
+  remove_friendship: { properties: {}, required: [], existing: true },
+  send_nudge: { properties: {}, required: [], existing: true },
+  mark_notification_read: { properties: {}, required: [], existing: true },
+  update_notification_settings: {
+    properties: {
+      enabled: { type: "boolean" },
+      daily_time: { type: ["string", "null"] },
+      friend_activity: { type: "boolean" },
+      nudges: { type: "boolean" },
+    },
+    required: [],
+  },
   create_task: { properties: taskFields, required: ["title"] },
   update_task: { properties: taskFields, required: [], existing: true },
   complete_task: { properties: {}, required: [], existing: true },
@@ -102,6 +229,38 @@ export const assistantWrites: Record<string, Definition> = {
   cancel_reminder: { properties: {}, required: [], existing: true },
 };
 export const assistantReads: Record<string, Definition> = {
+  get_profile: { properties: {}, required: [] },
+  get_habit_stats: {
+    properties: {
+      month: text,
+      year: { type: "integer", minimum: 1900, maximum: 2200 },
+    },
+    required: [],
+  },
+  get_leaderboard: { properties: {}, required: [] },
+  get_circle_activity: {
+    properties: { offset: { type: "integer", minimum: 0, maximum: 10000 } },
+    required: [],
+  },
+  get_habits: { properties: {}, required: [] },
+  get_habit_logs: {
+    properties: {
+      offset: { type: "integer", minimum: 0, maximum: 1000000 },
+      start_date: text,
+      end_date: text,
+    },
+    required: [],
+  },
+  get_friends: { properties: {}, required: [] },
+  search_profiles: { properties: { query: text }, required: ["query"] },
+  get_friend_summary: {
+    properties: { friendship_id: text, date: text },
+    required: ["friendship_id"],
+  },
+  get_notifications: { properties: {}, required: [] },
+  get_notification_settings: { properties: {}, required: [] },
+  get_delivery_status: { properties: {}, required: [] },
+  get_proofs: { properties: {}, required: [] },
   get_today: { properties: {}, required: [] },
   get_tasks: { properties: {}, required: [] },
   get_calendar: { properties: {}, required: [] },
@@ -121,30 +280,27 @@ export const assistantReads: Record<string, Definition> = {
     required: ["start", "end", "minutes"],
   },
 };
+// A single shallow envelope avoids provider schema-state explosions as the
+// registry grows. Each selected operation is still validated against its exact
+// contract on the server before it can reach any backend function.
 function declarations(registry: Record<string, Definition>) {
   return {
-    anyOf: Object.entries(registry).map(([tool, definition]) => ({
-      type: "object",
-      additionalProperties: false,
-      properties: {
-        tool: { type: "string", enum: [tool] },
-        ...(definition.existing
-          ? {
-              id: {
-                type: "string",
-                description: "Existing record ID from context.",
-              },
-            }
-          : {}),
-        arguments: {
-          type: "object",
-          properties: definition.properties,
-          required: definition.required,
-          additionalProperties: false,
-        },
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      tool: { type: "string", enum: Object.keys(registry) },
+      id: {
+        type: "string",
+        description:
+          "Only existing-record tools: saved UUID from authorized context. Omit for new records.",
       },
-      required: ["tool", "arguments", ...(definition.existing ? ["id"] : [])],
-    })),
+      arguments: {
+        type: "string",
+        description:
+          "A JSON-encoded object containing only the fields declared for the selected tool in its exact tool contract. For no arguments use {}. The server parses and validates this object before execution.",
+      },
+    },
+    required: ["tool", "arguments"],
   };
 }
 export const assistantSchema = {
@@ -152,14 +308,18 @@ export const assistantSchema = {
   additionalProperties: false,
   properties: {
     reply: text,
-    reads: { type: "array", items: declarations(assistantReads), maxItems: 8 },
+    request_complete: {
+      type: "boolean",
+      description:
+        "True only if these actions fully satisfy all remaining parts of the request once committed, or this is a complete read-only answer. False if more reads, dependent actions, or clarification are needed.",
+    },
+    reads: { type: "array", items: declarations(assistantReads) },
     actions: {
       type: "array",
       items: declarations(assistantWrites),
-      maxItems: 20,
     },
   },
-  required: ["reply", "reads", "actions"],
+  required: ["reply", "reads", "actions", "request_complete"],
 };
 export interface ModelAction {
   tool: string;
@@ -174,6 +334,14 @@ export function parseAssistantArguments(
     ? registry[action.tool]
     : undefined;
   if (!definition) throw new Error("Unsupported assistant operation.");
+  if (
+    Object.keys(action).some(
+      (key) => !["tool", "id", "arguments"].includes(key),
+    )
+  )
+    throw new Error("Invalid operation fields.");
+  if (!definition.existing && action.id !== undefined)
+    throw new Error("New record identities are assigned by the server.");
   const args =
     typeof action.arguments === "string"
       ? JSON.parse(action.arguments)
@@ -198,9 +366,11 @@ export function parseAssistantArguments(
       enum?: unknown[];
       minimum?: number;
       maximum?: number;
+      items?: { type: string; minimum: number; maximum: number };
     };
     const types = Array.isArray(field.type) ? field.type : [field.type];
-    const type = value === null ? "null" : typeof value;
+    const type =
+      value === null ? "null" : Array.isArray(value) ? "array" : typeof value;
     if (
       !types.includes(type) &&
       !(types.includes("integer") && Number.isInteger(value))
@@ -215,9 +385,25 @@ export function parseAssistantArguments(
     )
       throw new Error("Invalid action field range.");
     if (
+      Array.isArray(value) &&
+      (!field.items ||
+        value.length < 1 ||
+        value.length > 7 ||
+        value.some(
+          (v) =>
+            !Number.isInteger(v) ||
+            v < field.items!.minimum ||
+            v > field.items!.maximum,
+        ))
+    )
+      throw new Error("Invalid scheduled days.");
+    if (typeof value === "string" && value.length > 10000)
+      throw new Error("Action field is too long.");
+    if (
       (key === "task_id" ||
         key === "habit_id" ||
         key === "proof_id" ||
+        key === "friendship_id" ||
         key === "exclude_task_id") &&
       value !== null &&
       (typeof value !== "string" || !/^[0-9a-f-]{36}$/i.test(value))

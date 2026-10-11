@@ -3,7 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { isAuthorizationError, requireRead } from "@/lib/read-errors";
 import { createClient } from "@/lib/supabase/client";
-import { removeFriendship, respondToFriendRequest, sendFriendRequest } from "@/lib/actions/friends";
+import {
+  removeFriendship,
+  respondToFriendRequest,
+  sendFriendRequest,
+} from "@/lib/actions/friends";
 import { sendNudge } from "@/lib/actions/nudges";
 import { Friendship } from "@/lib/types";
 
@@ -17,6 +21,10 @@ export function useFriendsData() {
 
   const generation = useRef(0);
   const reload = useCallback(() => setReloadToken((value) => value + 1), []);
+  useEffect(() => {
+    window.addEventListener("dailyproof:work-applied", reload);
+    return () => window.removeEventListener("dailyproof:work-applied", reload);
+  }, [reload]);
 
   useEffect(() => {
     let cancelled = false;
@@ -28,14 +36,17 @@ export function useFriendsData() {
       const supabase = createClient();
 
       const {
-        data: { user }, error: authError
+        data: { user },
+        error: authError,
       } = await supabase.auth.getUser();
 
-      if (authError && authError.name !== "AuthSessionMissingError") throw authError;
+      if (authError && authError.name !== "AuthSessionMissingError")
+        throw authError;
       if (!user) {
         if (currentRequest()) {
           setUserId(null);
-          setFriendships([]); setReady(false);
+          setFriendships([]);
+          setReady(false);
           setLoading(false);
         }
         return;
@@ -49,13 +60,27 @@ export function useFriendsData() {
 
       requireRead(rows, rowsError);
       // A successful ownership read can revoke previously known friendships.
-      if (currentRequest()) setFriendships(current => current.filter(f => rows.some(row => row.id === f.id && row.status === f.status)));
+      if (currentRequest())
+        setFriendships((current) =>
+          current.filter((f) =>
+            rows.some((row) => row.id === f.id && row.status === f.status),
+          ),
+        );
       const otherIds = Array.from(
-        new Set((rows ?? []).map((row) => (row.requester_id === user.id ? row.addressee_id : row.requester_id)))
+        new Set(
+          (rows ?? []).map((row) =>
+            row.requester_id === user.id ? row.addressee_id : row.requester_id,
+          ),
+        ),
       );
 
       const { data: profileRows, error: profilesError } =
-        otherIds.length > 0 ? await supabase.from("profiles").select("id, username").in("id", otherIds) : { data: [], error: null };
+        otherIds.length > 0
+          ? await supabase
+              .from("profiles")
+              .select("id, username")
+              .in("id", otherIds)
+          : { data: [], error: null };
 
       requireRead(profileRows, profilesError);
       const profileById = new Map((profileRows ?? []).map((p) => [p.id, p]));
@@ -73,8 +98,8 @@ export function useFriendsData() {
             addresseeId: row.addressee_id,
             createdAt: row.created_at,
             otherUser: profile,
-            isRequester
-          }
+            isRequester,
+          },
         ];
       });
 
@@ -82,13 +107,18 @@ export function useFriendsData() {
         setUserId(user.id);
         setFriendships(merged);
         setLoading(false);
-        setError(null); setReady(true);
+        setError(null);
+        setReady(true);
       }
     }
 
-    void load().catch(cause => {
+    void load().catch((cause) => {
       if (!currentRequest()) return;
-      if (isAuthorizationError(cause)) { setFriendships([]); setReady(false); setUserId(null);  }
+      if (isAuthorizationError(cause)) {
+        setFriendships([]);
+        setReady(false);
+        setUserId(null);
+      }
       setError("Unable to load friendships. Please try again.");
       setLoading(false);
     });
@@ -97,34 +127,61 @@ export function useFriendsData() {
     };
   }, [reloadToken]);
 
-  const acceptedFriends = useMemo(() => friendships.filter((f) => f.status === "accepted"), [friendships]);
-  const incomingPending = useMemo(() => friendships.filter((f) => f.status === "pending" && !f.isRequester), [friendships]);
-  const outgoingPending = useMemo(() => friendships.filter((f) => f.status === "pending" && f.isRequester), [friendships]);
+  const acceptedFriends = useMemo(
+    () => friendships.filter((f) => f.status === "accepted"),
+    [friendships],
+  );
+  const incomingPending = useMemo(
+    () => friendships.filter((f) => f.status === "pending" && !f.isRequester),
+    [friendships],
+  );
+  const outgoingPending = useMemo(
+    () => friendships.filter((f) => f.status === "pending" && f.isRequester),
+    [friendships],
+  );
 
   async function addFriend(username: string) {
     generation.current++;
-    try { return await sendFriendRequest(username); }
-    finally { generation.current++; reload(); }
+    try {
+      return await sendFriendRequest(username);
+    } finally {
+      generation.current++;
+      reload();
+    }
   }
 
   async function respond(friendshipId: string, accept: boolean) {
     generation.current++;
     try {
       const result = await respondToFriendRequest(friendshipId, accept);
-      if (result.success) setFriendships(current => accept
-        ? current.map(f => f.id === friendshipId ? {...f,status:"accepted"} : f)
-        : current.filter(f => f.id !== friendshipId));
+      if (result.success)
+        setFriendships((current) =>
+          accept
+            ? current.map((f) =>
+                f.id === friendshipId ? { ...f, status: "accepted" } : f,
+              )
+            : current.filter((f) => f.id !== friendshipId),
+        );
       return result;
-    } finally { generation.current++; reload(); }
+    } finally {
+      generation.current++;
+      reload();
+    }
   }
 
   async function remove(friendshipId: string) {
     generation.current++;
     try {
       const result = await removeFriendship(friendshipId);
-      if (result.success) setFriendships(current => current.filter(f => f.id !== friendshipId));
+      if (result.success)
+        setFriendships((current) =>
+          current.filter((f) => f.id !== friendshipId),
+        );
       return result;
-    } finally { generation.current++; reload(); }
+    } finally {
+      generation.current++;
+      reload();
+    }
   }
 
   async function nudge(toUserId: string) {
@@ -144,6 +201,6 @@ export function useFriendsData() {
     respond,
     remove,
     nudge,
-    reload
+    reload,
   };
 }

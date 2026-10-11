@@ -16,13 +16,22 @@ const code = ts.transpileModule(fs.readFileSync("lib/gemini.ts", "utf8"), {
 // waiting 25 seconds or making requests with real credentials.
 async function run(
   steps,
-  { fallback = "backup-model", image, schema = {}, standalone = false } = {},
+  {
+    fallback = "backup-model",
+    image,
+    schema = {},
+    standalone = false,
+    repeat = 1,
+    retryAfter,
+    betweenRequestsMs = 0,
+  } = {},
 ) {
   const logs = [],
     calls = [],
     waits = [],
     deadlines = [];
   let elapsed = 0;
+  let wallClock = Date.now();
   function timeout(ms) {
     const controller = new AbortController();
     deadlines.push({ at: elapsed + ms, controller, ms });
@@ -47,6 +56,11 @@ async function run(
     module: exported,
     exports: exported.exports,
     Error,
+    Date: class extends Date {
+      static now() {
+        return wallClock;
+      }
+    },
     process: {
       env: {
         GEMINI_API_KEY: "PRIVATE_KEY",
@@ -54,7 +68,12 @@ async function run(
         GEMINI_FALLBACK_MODEL: fallback,
       },
     },
-    Math: { random: () => 0.5, floor: Math.floor },
+    Math: {
+      random: () => 0.5,
+      floor: Math.floor,
+      min: Math.min,
+      max: Math.max,
+    },
     AbortSignal: { timeout, any: (signals) => AbortSignal.any(signals) },
     fetch: async (url, options) => {
       const step = steps[calls.length];
@@ -66,6 +85,7 @@ async function run(
       return {
         ok: item.status === 200,
         status: item.status,
+        headers: { get: () => retryAfter ?? null },
         body: { cancel: async () => {} },
         text: async () => {
           assert.equal(
@@ -110,11 +130,17 @@ async function run(
       : await diagnostics.diagnoseAssistant(request);
     assert.ok(!JSON.stringify({ logs, result }).includes("PRIVATE"));
     assert.ok(!JSON.stringify(logs).includes("private timeout detail"));
-    assert.ok(logs.every((l) => l.correlationId === logs[0].correlationId));
+    const repeated = [];
+    for (let i = 1; i < repeat; i++) {
+      wallClock += betweenRequestsMs;
+      repeated.push(await diagnostics.diagnoseAssistant(request));
+    }
+    if (repeat === 1)
+      assert.ok(logs.every((l) => l.correlationId === logs[0].correlationId));
     assert.match(logs[0].correlationId, /^[0-9a-f-]{36}$/);
-    assert.equal(deadlines.filter((d) => d.ms === 25000).length, 1);
+    assert.equal(deadlines.filter((d) => d.ms === 25000).length, repeat);
     assert.ok(elapsed <= 25000);
-    return { result, calls, logs, waits, elapsed, deadlines };
+    return { result, repeated, calls, logs, waits, elapsed, deadlines };
   } finally {
     console.info = originalInfo;
     console.error = originalError;
@@ -215,7 +241,7 @@ test("400 and auth/model 4xx errors never retry or activate fallback", async () 
 });
 
 test("all allowed transient HTTP statuses can activate fallback", async () => {
-  for (const status of [429, 500, 502, 503, 504]) {
+  for (const status of [500, 502, 503, 504]) {
     const r = await run([status, status, status, 200]);
     assert.equal(r.result.ok, true);
     assert.equal(r.calls.length, 4);
@@ -223,7 +249,7 @@ test("all allowed transient HTTP statuses can activate fallback", async () => {
 });
 
 test("fallback has its own bounded retries", async () => {
-  const r = await run([503, 503, 503, 429, 200]);
+  const r = await run([503, 503, 503, 503, 200]);
   assert.equal(r.result.ok, true);
   assert.deepEqual(
     attempts(r)
@@ -234,6 +260,46 @@ test("fallback has its own bounded retries", async () => {
       ["fallback", 2],
     ],
   );
+});
+
+test("quota exhaustion stops retries and suppresses both models on subsequent calls", async () => {
+  const r = await run([429, 429], { repeat: 3, retryAfter: "3600" });
+  assert.equal(r.result.ok, false);
+  assert.ok(r.repeated.every((result) => result.ok === false));
+  assert.equal(r.calls.length, 2);
+  assert.equal(r.waits.length, 0);
+  assert.ok(
+    r.logs
+      .filter((l) => l.event === "ASSISTANT_ERROR")
+      .every((l) => l.geminiHttpStatus === 429),
+  );
+});
+
+test("exhausted primary is skipped while healthy fallback remains usable", async () => {
+  const r = await run([429, 200, 200], { repeat: 2 });
+  assert.equal(r.result.ok, true);
+  assert.equal(r.repeated[0].ok, true);
+  assert.equal(r.calls.length, 3);
+  assert.ok(r.calls.slice(1).every((c) => c.url.includes("backup-model")));
+  assert.equal(r.waits.length, 0);
+});
+
+test("quota exhaustion without fallback makes exactly one provider request", async () => {
+  const r = await run([429], { fallback: "", repeat: 2 });
+  assert.equal(r.calls.length, 1);
+  assert.equal(r.repeated[0].ok, false);
+});
+
+test("quota cooldown expires before a later explicit retry", async () => {
+  const r = await run([429, 200], {
+    fallback: "",
+    repeat: 2,
+    retryAfter: "1",
+    betweenRequestsMs: 60001,
+  });
+  assert.equal(r.result.ok, false);
+  assert.equal(r.repeated[0].ok, true);
+  assert.equal(r.calls.length, 2);
 });
 
 test("total latency remains 25 seconds across slow primary and fallback", async () => {

@@ -1,6 +1,15 @@
 "use client";
 
-import { createContext, createElement, useContext, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import {
+  createContext,
+  createElement,
+  useContext,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { isAuthorizationError, requireRead } from "@/lib/read-errors";
 import { createClient } from "@/lib/supabase/client";
 import { upsertHabitLog } from "@/lib/actions/habit-logs";
@@ -20,13 +29,21 @@ function useHabitState(enabled: boolean) {
   const [version, setVersion] = useState(0);
   const pendingRead = useRef(false);
   const pendingWrites = useRef(new Set<string>());
-  const reload = useCallback(() => { if (!pendingRead.current && pendingWrites.current.size === 0) setVersion(v => v + 1); }, []);
+  const reload = useCallback(() => {
+    if (!pendingRead.current && pendingWrites.current.size === 0)
+      setVersion((v) => v + 1);
+  }, []);
   const [habits, setHabits] = useState<Habit[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pendingCells, setPendingCells] = useState<Set<string>>(new Set());
   const [seeding, setSeeding] = useState(false);
   const changedIds = useRef(new Set<string>());
+  useEffect(() => {
+    const refresh = () => setVersion((v) => v + 1);
+    window.addEventListener("dailyproof:work-applied", refresh);
+    return () => window.removeEventListener("dailyproof:work-applied", refresh);
+  }, []);
 
   useEffect(() => {
     if (!enabled || pendingWrites.current.size > 0) return;
@@ -39,10 +56,12 @@ function useHabitState(enabled: boolean) {
       const supabase = createClient();
 
       const {
-        data: { user }, error: authError
+        data: { user },
+        error: authError,
       } = await supabase.auth.getUser();
 
-      if (authError && authError.name !== "AuthSessionMissingError") throw authError;
+      if (authError && authError.name !== "AuthSessionMissingError")
+        throw authError;
       if (!user) {
         if (!cancelled) {
           setHabits([]);
@@ -63,7 +82,10 @@ function useHabitState(enabled: boolean) {
 
       const { data: logRows, error: logsError } =
         habitIds.length > 0
-          ? await supabase.from("habit_logs").select("habit_id, log_date, status").in("habit_id", habitIds)
+          ? await supabase
+              .from("habit_logs")
+              .select("habit_id, log_date, status")
+              .in("habit_id", habitIds)
           : { data: [], error: null };
 
       requireRead(logRows, logsError);
@@ -82,27 +104,40 @@ function useHabitState(enabled: boolean) {
           logsByDate,
           isCore: row.is_core,
           orderIndex: row.order_index,
-          scheduledDays: row.scheduled_days ?? [1, 2, 3, 4, 5, 6, 7]
+          scheduledDays: row.scheduled_days ?? [1, 2, 3, 4, 5, 6, 7],
         };
       });
 
       if (!cancelled) {
         // Initial reads may overlap creation from an already-open form. Keep
         // changes made locally since this read began, including deletions.
-        setHabits(current => [...merged.filter(h => !changedIds.current.has(h.id)), ...current.filter(h => changedIds.current.has(h.id))]);
+        setHabits((current) => [
+          ...merged.filter((h) => !changedIds.current.has(h.id)),
+          ...current.filter((h) => changedIds.current.has(h.id)),
+        ]);
         setLoading(false);
         setError(null);
         setReady(true);
       }
     }
 
-    void load().catch(cause => {
-      if (cancelled) return;
-      if (isAuthorizationError(cause)) { setHabits([]); setReady(false); }
-      setError("Unable to load habits. Please try again.");
-      setLoading(false);
-    }).finally(() => { if (!cancelled) pendingRead.current = false; });
-    return () => { cancelled = true; pendingRead.current = false; };
+    void load()
+      .catch((cause) => {
+        if (cancelled) return;
+        if (isAuthorizationError(cause)) {
+          setHabits([]);
+          setReady(false);
+        }
+        setError("Unable to load habits. Please try again.");
+        setLoading(false);
+      })
+      .finally(() => {
+        if (!cancelled) pendingRead.current = false;
+      });
+    return () => {
+      cancelled = true;
+      pendingRead.current = false;
+    };
   }, [enabled, version]);
 
   useEffect(() => {
@@ -130,13 +165,18 @@ function useHabitState(enabled: boolean) {
           if (nextStatus === "empty") delete logsByDate[dateKey];
           else logsByDate[dateKey] = nextStatus;
           return { ...h, logsByDate };
-        })
+        }),
       );
 
-      const result = await upsertHabitLog(habitId, dateKey, nextStatus).catch(() => ({success: false, error: "Unable to save habit log."}));
+      const result = await upsertHabitLog(habitId, dateKey, nextStatus).catch(
+        () => ({ success: false, error: "Unable to save habit log." }),
+      );
 
       if (!result.success) {
-        console.error(`Failed to save habit log (habit ${habitId}, ${dateKey}, status ${nextStatus}):`, result.error);
+        console.error(
+          `Failed to save habit log (habit ${habitId}, ${dateKey}, status ${nextStatus}):`,
+          result.error,
+        );
         setHabits((current) =>
           current.map((h) => {
             if (h.id !== habitId) return h;
@@ -144,7 +184,7 @@ function useHabitState(enabled: boolean) {
             if (previousStatus === "empty") delete logsByDate[dateKey];
             else logsByDate[dateKey] = previousStatus;
             return { ...h, logsByDate };
-          })
+          }),
         );
       }
 
@@ -155,10 +195,14 @@ function useHabitState(enabled: boolean) {
         return next;
       });
     },
-    [habits]
+    [habits],
   );
 
-  function handleHabitCreated(id: string, orderIndex: number, input: HabitInput) {
+  function handleHabitCreated(
+    id: string,
+    orderIndex: number,
+    input: HabitInput,
+  ) {
     changedIds.current.add(id);
     setHabits((current) => [
       ...current,
@@ -171,8 +215,8 @@ function useHabitState(enabled: boolean) {
         logsByDate: {},
         isCore: input.isCore,
         orderIndex,
-        scheduledDays: input.scheduledDays
-      }
+        scheduledDays: input.scheduledDays,
+      },
     ]);
   }
 
@@ -188,10 +232,10 @@ function useHabitState(enabled: boolean) {
               subtitle: input.category,
               icon: habitIcon(input.name),
               isCore: input.isCore,
-              scheduledDays: input.scheduledDays
+              scheduledDays: input.scheduledDays,
             }
-          : h
-      )
+          : h,
+      ),
     );
   }
 
@@ -202,7 +246,10 @@ function useHabitState(enabled: boolean) {
 
   async function handleSeedStarterHabits() {
     setSeeding(true);
-    const result = await seedStarterHabits().catch(() => ({success: false as const, error: "Unable to create starter habits."}));
+    const result = await seedStarterHabits().catch(() => ({
+      success: false as const,
+      error: "Unable to create starter habits.",
+    }));
     setSeeding(false);
     if (!result.success) return;
     for (const row of result.data) changedIds.current.add(row.id);
@@ -217,8 +264,8 @@ function useHabitState(enabled: boolean) {
         logsByDate: {},
         isCore: true,
         orderIndex: row.order_index,
-        scheduledDays: [1, 2, 3, 4, 5, 6, 7]
-      }))
+        scheduledDays: [1, 2, 3, 4, 5, 6, 7],
+      })),
     );
   }
 
@@ -244,17 +291,19 @@ function useHabitState(enabled: boolean) {
     handleHabitCreated,
     handleHabitUpdated,
     handleHabitDeleted,
-    handleSeedStarterHabits
+    handleSeedStarterHabits,
   };
 }
 
-const HabitsContext = createContext<ReturnType<typeof useHabitState> | null>(null);
-export function HabitsProvider({children}: {children: ReactNode}) {
- const state = useHabitState(true);
- return createElement(HabitsContext.Provider, {value: state}, children);
+const HabitsContext = createContext<ReturnType<typeof useHabitState> | null>(
+  null,
+);
+export function HabitsProvider({ children }: { children: ReactNode }) {
+  const state = useHabitState(true);
+  return createElement(HabitsContext.Provider, { value: state }, children);
 }
 export function useHabitsData() {
- const shared = useContext(HabitsContext);
- const local = useHabitState(shared === null);
- return shared ?? local;
+  const shared = useContext(HabitsContext);
+  const local = useHabitState(shared === null);
+  return shared ?? local;
 }

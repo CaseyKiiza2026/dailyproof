@@ -189,6 +189,9 @@ test("R-05: failed delivery is retained for retry with a stable idempotency key 
     "lib/push.ts",
     {
       "server-only": {},
+      "@/lib/proof-cleanup": {
+        cleanupProofFiles: async () => ({ pending: false }),
+      },
       "@/lib/supabase/admin": { createAdminClient: () => db },
     },
     {
@@ -310,6 +313,9 @@ for (const [label, row, heading, content] of [
       "lib/push.ts",
       {
         "server-only": {},
+        "@/lib/proof-cleanup": {
+          cleanupProofFiles: async () => ({ pending: false }),
+        },
         "@/lib/supabase/admin": { createAdminClient: () => db },
       },
       {

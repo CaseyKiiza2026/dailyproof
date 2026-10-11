@@ -6,6 +6,7 @@ import {
 } from "@/lib/timezone";
 import { WorkAction, validateWorkAction } from "@/lib/work-actions";
 import { Task } from "@/lib/tasks";
+import type { AppOperation } from "@/lib/app-operations";
 
 type ScheduleCalendar = Omit<CalendarData, "tasks"> & {
   tasks: Pick<Task, "id" | "status" | "scheduled_start" | "scheduled_end">[];
@@ -109,7 +110,12 @@ export function validateProposedSchedule(
     commitments: [
       ...calendar.commitments.filter(
         (c) =>
-          !actions.some((a) => a.tool === "update_commitment" && a.id === c.id),
+          !actions.some(
+            (a) =>
+              (a.tool === "update_commitment" ||
+                a.tool === "delete_commitment") &&
+              a.id === c.id,
+          ),
       ),
       ...actions
         .filter(
@@ -123,11 +129,43 @@ export function validateProposedSchedule(
         .map((a) => ({ ...a.values, id: a.id, user_id: "" })),
     ],
     tasks: [
-      ...calendar.tasks.filter((t) => !ids.has(t.id)),
+      ...calendar.tasks.filter(
+        (t) =>
+          !ids.has(t.id) &&
+          !actions.some((a) => a.tool === "delete_task" && a.id === t.id),
+      ),
       ...taskActions.map((a) => ({
         ...a.values,
         id: a.id,
       })),
+    ],
+    habits: [
+      ...calendar.habits
+        .filter(
+          (h) =>
+            !actions.some(
+              (a) =>
+                a.tool === "delete_all_habits" ||
+                (a.tool === "delete_habit" && a.id === h.id),
+            ),
+        )
+        .map((h) => {
+          const change = actions.find(
+            (a) =>
+              (a.tool === "update_habit" || a.tool === "set_habit_time") &&
+              a.id === h.id,
+          );
+          return change ? { ...h, ...change.values } : h;
+        }),
+      ...actions
+        .filter((a): a is AppOperation => a.tool === "create_habit")
+        .map((a) => ({
+          id: a.id,
+          name: a.values.name as string,
+          scheduled_days: a.values.scheduled_days as number[],
+          scheduled_time: a.values.scheduled_time as string | null,
+          duration_minutes: a.values.duration_minutes as number | null,
+        })),
     ],
   };
   for (const action of taskActions) {

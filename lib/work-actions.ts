@@ -1,7 +1,13 @@
 import { TaskInput, validateTask } from "@/lib/tasks";
 import { ReminderInput, validateReminder } from "@/lib/notifications";
 import { CommitmentInput, validateCommitment } from "@/lib/calendar";
+import {
+  AppOperation,
+  isAppOperation,
+  validateAppOperation,
+} from "@/lib/app-operations";
 export type WorkAction = (
+  | AppOperation
   | { tool: "create_task" | "update_task"; id: string; values: TaskInput }
   | {
       tool: "create_commitment" | "update_commitment";
@@ -14,7 +20,11 @@ export type WorkAction = (
       values: ReminderInput;
     }
   | { tool: "cancel_reminder"; id: string; values: Record<string, never> }
-) & { expected_updated_at?: string; displayTitle?: string };
+) & {
+  expected_updated_at?: string;
+  displayTitle?: string;
+  expected_habit_ids?: string[];
+};
 export function validateWorkAction(action: WorkAction, ai = false) {
   if (
     !action ||
@@ -22,6 +32,14 @@ export function validateWorkAction(action: WorkAction, ai = false) {
     !/^[0-9a-f-]{36}$/i.test(action.id)
   )
     throw new Error("Invalid action identity.");
+  if (
+    action.tool === "delete_all_habits" &&
+    (!Array.isArray(action.expected_habit_ids) ||
+      action.expected_habit_ids.some((id) => !/^[0-9a-f-]{36}$/i.test(id)))
+  )
+    throw new Error("A reviewed habit snapshot is required.");
+  if (isAppOperation(action.tool))
+    return validateAppOperation(action as AppOperation);
   if (action.tool === "create_task" || action.tool === "update_task") {
     const task = validateTask(action.values);
     if (ai && task.scheduled_start && task.scheduled_end) {

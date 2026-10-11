@@ -211,7 +211,7 @@ test("proof records and storage enforce ownership and explicit friend sharing", 
       [b, JSON.stringify([create])],
     );
     await db.query("select apply_ai_plan($1)", [plan.id]);
-    await assert.rejects(() => db.query("select apply_ai_plan($1)", [plan.id]));
+    await db.query("select apply_ai_plan($1)", [plan.id]);
     assert.equal(
       (await db.query("select * from tasks")).rows.length,
       1,

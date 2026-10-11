@@ -14,7 +14,7 @@ export const getCalendar=()=>{state.calls.push('calendar');return Promise.resolv
 export const saveTask=()=>{},deleteTask=()=>{};
 export const useUserClock=()=>({timeZone:'America/Toronto'});
 export const useRouter=()=>({refresh:()=>state.calls.push('router')});
-export const askAssistant=async()=>({ok:true,reply:'Review the requested changes.',planId:'plan',actions:[
+export const runAssistant=async()=>({ok:true,reply:'Review the requested changes.',planId:'plan',actions:[
 {tool:'create_task',id:'task',values:{title:'Buy groceries',description:'',due_at:null,scheduled_start:null,scheduled_end:null,status:'pending',priority:'normal'}},
 {tool:'create_commitment',id:'event',values:{title:'Work',description:'',start_at:'2099-01-05T14:00:00Z',end_at:'2099-01-05T22:00:00Z'}}]});
 export const approveAssistantPlan=async()=>{state.calls.push('apply');await new Promise(r=>setTimeout(r,80));if(state.fail)return {ok:false,error:'Synthetic conflict; choose another time or retry.'};state.tasks=[{id:'task',title:'Buy groceries'}];state.calendar={...state.calendar,tasks:[...state.tasks],commitments:[{id:'event',title:'Work'}]};return {applied:true}};

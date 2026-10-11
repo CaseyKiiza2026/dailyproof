@@ -1,139 +1,125 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
-
-type ActionResult<T = undefined> = { success: true; data: T } | { success: false; error: string };
-
+import { requireUser } from "@/lib/server-user";
+import { executeWorkActions } from "@/lib/work-service";
+type ActionResult<T = undefined> =
+  { success: true; data: T } | { success: false; error: string };
 export interface HabitInput {
   name: string;
   category: string;
   isCore: boolean;
   scheduledDays: number[];
 }
-
-function normalizeScheduledDays(days: number[]): number[] {
-  const valid = days.filter((d) => Number.isInteger(d) && d >= 1 && d <= 7);
-  const unique = Array.from(new Set(valid));
-  return unique.length > 0 ? unique : [1, 2, 3, 4, 5, 6, 7];
-}
-
-export async function createHabit(input: HabitInput): Promise<ActionResult<{ id: string; orderIndex: number }>> {
-  const supabase = await createClient();
-
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
-
-  if (!user) return { success: false, error: "Not authenticated." };
-
-  const name = input.name.trim();
-  if (!name) return { success: false, error: "Habit name is required." };
-
-  const { data: maxRow } = await supabase
+async function saveHabitRecord(id: string | null, input: HabitInput) {
+  const { db, user } = await requireUser();
+  const target = id ?? crypto.randomUUID();
+  let timing = {
+    scheduled_time: null as string | null,
+    duration_minutes: null as number | null,
+  };
+  if (id) {
+    const { data, error } = await db
+      .from("habits")
+      .select("scheduled_time,duration_minutes")
+      .eq("id", id)
+      .eq("user_id", user.id)
+      .single();
+    if (error || !data) throw new Error("Habit unavailable.");
+    timing = {
+      scheduled_time: data.scheduled_time?.slice(0, 5) ?? null,
+      duration_minutes: data.duration_minutes,
+    };
+  }
+  const days = [
+    ...new Set(
+      input.scheduledDays.filter(
+        (d) => Number.isInteger(d) && d >= 1 && d <= 7,
+      ),
+    ),
+  ];
+  await executeWorkActions([
+    {
+      tool: id ? "update_habit" : "create_habit",
+      id: target,
+      values: {
+        name: input.name,
+        category: input.category,
+        is_core: input.isCore,
+        scheduled_days: days.length ? days : [1, 2, 3, 4, 5, 6, 7],
+        ...timing,
+      },
+    },
+  ]);
+  const { data, error } = await db
     .from("habits")
-    .select("order_index")
+    .select("id,order_index")
+    .eq("id", target)
     .eq("user_id", user.id)
-    .order("order_index", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  const nextOrderIndex = (maxRow?.order_index ?? -1) + 1;
-
-  const { data, error } = await supabase
-    .from("habits")
-    .insert({
-      user_id: user.id,
-      name,
-      category: input.category,
-      is_core: input.isCore,
-      order_index: nextOrderIndex,
-      scheduled_days: normalizeScheduledDays(input.scheduledDays)
-    })
-    .select("id, order_index")
     .single();
-
-  if (error || !data) return { success: false, error: error?.message ?? "Failed to create habit." };
-  return { success: true, data: { id: data.id, orderIndex: data.order_index } };
+  if (error || !data) throw new Error("Unable to confirm saved habit.");
+  return { id: data.id as string, orderIndex: data.order_index as number };
 }
-
-export async function updateHabit(habitId: string, input: HabitInput): Promise<ActionResult> {
-  const supabase = await createClient();
-
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
-
-  if (!user) return { success: false, error: "Not authenticated." };
-
-  const name = input.name.trim();
-  if (!name) return { success: false, error: "Habit name is required." };
-
-  const { error } = await supabase
-    .from("habits")
-    .update({ name, category: input.category, is_core: input.isCore, scheduled_days: normalizeScheduledDays(input.scheduledDays) })
-    .eq("id", habitId)
-    .eq("user_id", user.id);
-
-  if (error) return { success: false, error: error.message };
-  return { success: true, data: undefined };
+export async function createHabit(
+  input: HabitInput,
+): Promise<ActionResult<{ id: string; orderIndex: number }>> {
+  try {
+    return { success: true, data: await saveHabitRecord(null, input) };
+  } catch {
+    return {
+      success: false,
+      error: "Unable to create habit. Check the details and schedule.",
+    };
+  }
 }
-
+export async function updateHabit(
+  habitId: string,
+  input: HabitInput,
+): Promise<ActionResult> {
+  try {
+    await saveHabitRecord(habitId, input);
+    return { success: true, data: undefined };
+  } catch {
+    return {
+      success: false,
+      error: "Unable to update habit. Check ownership and schedule.",
+    };
+  }
+}
 export async function deleteHabit(habitId: string): Promise<ActionResult> {
-  const supabase = await createClient();
-
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
-
-  if (!user) return { success: false, error: "Not authenticated." };
-
-  const { error } = await supabase.from("habits").delete().eq("id", habitId).eq("user_id", user.id);
-
-  if (error) return { success: false, error: error.message };
-  return { success: true, data: undefined };
+  try {
+    await executeWorkActions([
+      { tool: "delete_habit", id: habitId, values: {} },
+    ]);
+    return { success: true, data: undefined };
+  } catch {
+    return { success: false, error: "Unable to delete habit." };
+  }
 }
-
-const STARTER_HABITS: { name: string; category: string }[] = [
-  { name: "45 min ML minimum", category: "ML / Career" },
-  { name: "Code something", category: "ML / Career" },
-  { name: "Protein target", category: "Fitness / Bulk" },
-  { name: "Calories target", category: "Fitness / Bulk" },
-  { name: "Gym or recovery", category: "Fitness / Bulk" },
-  { name: "Water", category: "Sleep / Recovery" },
-  { name: "No social before 5 PM", category: "Discipline" },
-  { name: "Plan tomorrow", category: "Discipline" }
-];
-
 export interface SeedHabitRow {
   id: string;
   name: string;
   category: string;
   order_index: number;
 }
-
-export async function seedStarterHabits(): Promise<ActionResult<SeedHabitRow[]>> {
-  const supabase = await createClient();
-
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
-
-  if (!user) return { success: false, error: "Not authenticated." };
-
-  const { count } = await supabase.from("habits").select("id", { count: "exact", head: true }).eq("user_id", user.id);
-
-  if (count && count > 0) return { success: false, error: "Starter habits can only be added when you have no habits yet." };
-
-  const rows = STARTER_HABITS.map((habit, index) => ({
-    user_id: user.id,
-    name: habit.name,
-    category: habit.category,
-    is_core: true,
-    order_index: index
-  }));
-
-  const { data, error } = await supabase.from("habits").insert(rows).select("id, name, category, order_index");
-
-  if (error || !data) return { success: false, error: error?.message ?? "Failed to add starter habits." };
-  return { success: true, data };
+export async function seedStarterHabits(): Promise<
+  ActionResult<SeedHabitRow[]>
+> {
+  try {
+    const { db, user } = await requireUser();
+    await executeWorkActions([
+      { tool: "seed_starter_habits", id: crypto.randomUUID(), values: {} },
+    ]);
+    const { data, error } = await db
+      .from("habits")
+      .select("id,name,category,order_index")
+      .eq("user_id", user.id)
+      .order("order_index");
+    if (error || !data) throw new Error("Unable to confirm starter habits.");
+    return { success: true, data };
+  } catch {
+    return {
+      success: false,
+      error: "Starter habits can only be added to an empty habit list.",
+    };
+  }
 }

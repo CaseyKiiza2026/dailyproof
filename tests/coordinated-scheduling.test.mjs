@@ -241,12 +241,9 @@ test("coordinated schedule database regression and authorization", async (t) => 
           )
         ).rows[0];
         await db.query("select apply_ai_plan($1)", [plan.id]);
-        await db.exec("savepoint replay");
-        await assert.rejects(
-          () => db.query("select apply_ai_plan($1)", [plan.id]),
-          /expired or already applied/,
-        );
-        await db.exec("rollback to replay");
+        const saved = await snapshot();
+        await db.query("select apply_ai_plan($1)", [plan.id]);
+        assert.deepEqual(await snapshot(), saved);
         await db.exec("reset role");
         const expired = (
           await db.query(
@@ -257,7 +254,7 @@ test("coordinated schedule database regression and authorization", async (t) => 
         await db.exec("set role authenticated; savepoint expired");
         await assert.rejects(
           () => db.query("select apply_ai_plan($1)", [expired.id]),
-          /expired or already applied/,
+          /expired/i,
         );
         await db.exec("rollback to expired");
       },

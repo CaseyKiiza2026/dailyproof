@@ -1,17 +1,17 @@
 # DailyProof
 
-Responsive habits, one-off tasks, calendar, private proof, friend accountability, reminders, and a Gemini planning assistant. The source of truth is [the V1 specification](docs/DAILYPROOF_V1_SPEC.md).
+Responsive habits, one-off tasks, calendar, private proof, friend accountability, reminders, and a Gemini execution assistant. The source of truth is [the V1 specification](docs/DAILYPROOF_V1_SPEC.md). See [assistant feature coverage, verification and release instructions](docs/ASSISTANT_FEATURE_COVERAGE.md).
 
 ## Architecture
 
 - Existing Next.js App Router, React, TypeScript, Tailwind, and desktop/mobile layouts.
 - Supabase Auth, Postgres RLS, private Storage, and existing Realtime feed.
-- `lib/actions/` authenticates operations. `lib/work-service.ts` and the transactional `apply_work_actions` RPC serve both manual task/reminder controls and reviewed AI plans.
+- `lib/actions/` authenticates operations. `lib/work-service.ts` and the transactional `apply_work_actions` RPC serve manual application controls and assistant plans.
 - Persisted IANA timezone plus `lib/timezone.ts` define calendar days; timestamps use UTC. Nonexistent or ambiguous manually entered DST times are rejected.
 - FullCalendar renders month/week/day views. Week view scrolls on phones. Commitments do not affect completion; scheduled tasks remain single task records.
 - Private proof images use 60-second signed read URLs. Sharing requires an accepted friendship, owner detailed-activity and proof-sharing preferences, and the individual proof's friends visibility.
 - Backend notification claims, leases, retry limits, and stable OneSignal idempotency keys protect against concurrent duplicate delivery requests.
-- Gemini proposes allowlisted actions through application services. Users review plans before atomic application. Ownership, overlap, due dates, duration, expiry, and stale edits are checked. AI cannot move fixed commitments. Proof assessment is advisory, not fraud-proof.
+- Gemini executes narrowly scoped operations through shared application services. Clear ordinary requests run automatically; broad destructive changes require confirmation. Ownership, overlap, due dates, duration, expiry and stale edits are checked. Fixed commitments move only on explicit requests. Privacy/security settings and uploads remain UI controls. Proof assessment is advisory. Apply `20261010120000_assistant_feature_operations.sql` before deploying this assistant update; see its linked release instructions.
 
 ## Local setup
 

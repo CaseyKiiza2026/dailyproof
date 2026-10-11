@@ -241,6 +241,9 @@ function readTools({ fail = false, now } = {}) {
     },
     "@/lib/actions/calendar": { getCalendar: async () => fixture },
     "@/lib/actions/reminders": { getReminders: async () => [] },
+    "@/lib/actions/friends": {
+      searchProfilesByUsername: async () => ({ success: true, data: [] }),
+    },
     "@/lib/gemini": {},
   };
   return { tools: compile("lib/ai-tools.ts", imports, now), queries };
@@ -275,6 +278,9 @@ test("What should I do next receives actual completion-aware context on the firs
   const { tools } = readTools();
   let captured;
   const ask = compile("lib/actions/assistant.ts", {
+    "@/lib/proof-cleanup": {
+      cleanupProofFiles: async () => ({ pending: false }),
+    },
     "@/lib/assistant-diagnostics": {
       assistantStage: async (_s, _f, work) => work(),
       diagnoseAssistant: async (work) => ({ ok: true, ...(await work()) }),

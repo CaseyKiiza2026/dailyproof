@@ -33,15 +33,7 @@ export async function saveCommitment(
   ]);
 }
 export async function deleteCommitment(id: string) {
-  const { db, user } = await requireUser();
-  const { error } = await db
-    .from("commitments")
-    .delete()
-    .eq("id", id)
-    .eq("user_id", user.id)
-    .select("id")
-    .single();
-  if (error) throw new Error("Unable to delete commitment.");
+  await executeWorkActions([{ tool: "delete_commitment", id, values: {} }]);
 }
 export async function setHabitTime(
   id: string,
@@ -56,13 +48,14 @@ export async function setHabitTime(
       duration! > 720)
   )
     throw new Error("Enter a time and duration of 5–720 minutes.");
-  const { db, user } = await requireUser();
-  const { error } = await db
-    .from("habits")
-    .update({ scheduled_time: time, duration_minutes: time ? duration : null })
-    .eq("id", id)
-    .eq("user_id", user.id)
-    .select("id")
-    .single();
-  if (error) throw new Error("Unable to save habit time.");
+  await executeWorkActions([
+    {
+      tool: "set_habit_time",
+      id,
+      values: {
+        scheduled_time: time,
+        duration_minutes: time ? duration : null,
+      },
+    },
+  ]);
 }

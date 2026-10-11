@@ -1,5 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { cleanupProofFiles } from "@/lib/proof-cleanup";
 interface DeliveryRow {
   id: string;
   user_id: string;
@@ -10,6 +11,7 @@ interface DeliveryRow {
 }
 export async function deliverNotifications() {
   const db = createAdminClient();
+  await cleanupProofFiles(db).catch(() => {});
   const { error: enqueueError } = await db.rpc("enqueue_due_notifications");
   if (enqueueError) throw new Error("Unable to enqueue due reminders.");
   const { data, error } = await db.rpc("claim_push_notifications");

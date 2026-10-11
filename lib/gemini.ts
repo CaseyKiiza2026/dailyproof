@@ -6,11 +6,31 @@ import {
 } from "@/lib/assistant-diagnostics";
 import { setTimeout as delay } from "node:timers/promises";
 
-const transientStatuses = [429, 500, 502, 503, 504];
+const transientStatuses = [500, 502, 503, 504];
+// Server-process circuit breaker. Never retain prompts, account data, or keys.
+const quotaCooldowns = new Map<string, number>();
+function quotaCooldown(response: Response): number {
+  const value = response.headers?.get("retry-after");
+  const seconds = value && /^\d+$/.test(value) ? Number(value) : null;
+  const until = value && seconds === null ? Date.parse(value) : NaN;
+  return Math.min(
+    86400000,
+    Math.max(
+      60000,
+      seconds !== null
+        ? seconds * 1000
+        : Number.isFinite(until)
+          ? until - Date.now()
+          : 300000,
+    ),
+  );
+}
 const unavailable = (status?: number) =>
   Object.assign(
     new Error(
-      "The assistant is temporarily unavailable. Please try again later.",
+      status === 429
+        ? "The AI provider quota is exhausted. Live AI is blocked for now; wait before retrying. Manual DailyProof controls remain available."
+        : "The assistant is temporarily unavailable. Please try again later.",
     ),
     { geminiHttpStatus: status },
   );
@@ -56,6 +76,12 @@ export async function geminiJson(
       const correlationId = geminiCorrelationId();
       let lastStatus: number | undefined;
       for (const [index, model] of models.entries()) {
+        const cooldown = quotaCooldowns.get(model);
+        if (cooldown && cooldown > Date.now()) {
+          lastStatus = 429;
+          continue;
+        }
+        quotaCooldowns.delete(model);
         const role = index === 0 ? "primary" : "fallback";
         if (index > 0)
           logGeminiEvent("GEMINI_FALLBACK", {
@@ -101,8 +127,11 @@ export async function geminiJson(
             }
             // Do not read or log provider error bodies.
             void response.body?.cancel().catch(() => {});
+            if (status === 429) {
+              quotaCooldowns.set(model, Date.now() + quotaCooldown(response));
+            }
             transient = transientStatuses.includes(status);
-            if (!transient) throw unavailable(status);
+            if (!transient && status !== 429) throw unavailable(status);
           } catch (error) {
             timedOut =
               signal.aborted ||
@@ -123,6 +152,7 @@ export async function geminiJson(
             });
           }
           overall.throwIfAborted();
+          if (status === 429) break;
           if (!transient) throw unavailable(status ?? undefined);
           if (attempt === 3 || signal.aborted) break;
           logGeminiEvent("ASSISTANT_RETRY", {

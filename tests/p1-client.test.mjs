@@ -18,7 +18,7 @@ window.transport={calls,set:(key,value)=>values[key]=value,hold:key=>held.add(ke
 window.open=url=>{calls.push(['openImage',[url]])};
 export const getTasks=()=>call('tasks'),saveTask=(...args)=>call('saveTask',...args),deleteTask=(...args)=>call('deleteTask',...args);
 export const getProofs=(...args)=>call('proofs',...args),addProof=(...args)=>call('addProof',...args),deleteProof=(...args)=>call('deleteProof',...args),proofImageUrl=id=>call('image',id),assessProof=id=>call('assess',id);
-export const askAssistant=q=>call('ask',q),approveAssistantPlan=id=>call('approve',id);
+export const runAssistant=q=>call('ask',q),approveAssistantPlan=id=>call('approve',id);
 export const getNotifications=()=>call('notifications'),getReminders=()=>call('reminders'),getCalendar=()=>call('calendar');
 export const getNotificationSettings=()=>call('settings'),saveNotificationSettings=()=>call('saveSettings'),enableBrowserPush=()=>call('push');
 export const saveReminder=()=>call('saveReminder'),cancelReminder=()=>call('cancelReminder'),markNotificationRead=()=>call('markRead');
@@ -794,7 +794,9 @@ test("VS-07 carryover: first load has no authoritative empty grid; repeat naviga
   await expect(
     p.locator(".proof-calendar").getByText("Study", { exact: true }),
   ).toHaveCount(0);
-  await expect(p.locator('.proof-calendar [class*="fc-"]').first()).toBeVisible();
+  await expect(
+    p.locator('.proof-calendar [class*="fc-"]').first(),
+  ).toBeVisible();
   await expect(p.getByText("Loading calendar...", { exact: true })).toHaveCount(
     0,
   );
